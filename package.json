@@ -1,0 +1,42 @@
+{
+  "name": "joule",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Earn or spend USDC per-inference / per-second on idle GPU/CPU, settled on Circle Arc via x402 nanopayments. Clean-room Node provider (Lepton Agents Hackathon, RFB 4 + RFB 2).",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "buyer": "node --env-file-if-exists=.env src/buyer.js",
+    "agent": "node --env-file-if-exists=.env src/agent-buyer.js",
+    "console": "node --env-file-if-exists=.env src/buyer-server.js",
+    "smoke": "node scripts/smoke.mjs",
+    "build:exe": "node scripts/build-exe.mjs",
+    "seed": "node --env-file-if-exists=.env scripts/seed-traffic.mjs",
+    "withdraw": "node --env-file-if-exists=.env scripts/withdraw-seller.mjs",
+    "test": "node --test"
+  },
+  "keywords": [
+    "x402",
+    "usdc",
+    "arc",
+    "circle",
+    "nanopayments",
+    "ollama",
+    "idle-compute",
+    "pay-per-second"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@circle-fin/x402-batching": "^2.0.4",
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "viem": "^2.47.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
+  }
+}
