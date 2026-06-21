@@ -1,8 +1,7 @@
 import Link from "next/link";
 import BgVideo from "./components/BgVideo";
 
-const VIDEO =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260517_222138_3e3205be-3364-417b-a64a-bfe087acbec4.mp4";
+const VIDEO = "/hero.mp4"; // self-hosted 4s forward→reverse loop (~1.6MB)
 
 const stats = [
   { mark: "$", num: "0.0002", lab: "USDC\nper second" },
