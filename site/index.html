@@ -1,102 +1,57 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Joule · sell your spare seconds</title>
-<meta name="description" content="Turn an idle GPU or CPU into a paid inference node. Earn USDC per second, settled on Arc. Download, run, earn." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<meta name="description" content="Turn an idle GPU or CPU into a paid inference node. Earn USDC per second, settled on Arc. Agents pay per second — no accounts, no API keys." />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-<style>
-  :root{
-    --bg:#0A0F0E;--panel:#0E1413;--raised:#121A18;--window:#080C0B;--rule:#1E2A27;
-    --ink:#E8F0EC;--dim:#7C918A;--meter:#FF9F1C;--meter-soft:rgba(255,159,28,.16);--live:#3FE0A8;
-    --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;--disp:'Space Grotesk',system-ui,sans-serif;
-  }
-  *{box-sizing:border-box}html,body{margin:0}
-  body{background:radial-gradient(120% 70% at 50% -10%,#15110a 0%,var(--bg) 55%);color:var(--ink);
-    font-family:var(--disp);-webkit-font-smoothing:antialiased;line-height:1.5}
-  .wrap{max-width:920px;margin:0 auto;padding:26px 24px 60px}
-  nav{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px}
-  .mark{font-family:var(--mono);font-weight:600;letter-spacing:.3em;font-size:13px}
-  .net{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--dim)}
-  .hero{padding:58px 0 30px;text-align:center}
-  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.34em;color:var(--meter);text-transform:uppercase}
-  h1{font-size:clamp(38px,7vw,68px);line-height:1.03;letter-spacing:-.02em;margin:16px auto 0;max-width:16ch;font-weight:700}
-  h1 .g{color:var(--meter)}
-  .sub{font-family:var(--mono);color:var(--dim);font-size:15px;max-width:54ch;margin:20px auto 0;line-height:1.7}
-  .meterbox{margin:34px auto 0;max-width:420px;background:var(--window);border:1px solid #16201d;border-radius:14px;
-    padding:22px;box-shadow:inset 0 2px 18px rgba(0,0,0,.6)}
-  .meterbox .lab{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase}
-  .meterbox .val{font-family:var(--mono);font-weight:600;color:var(--meter);font-size:46px;margin-top:8px;
-    font-variant-numeric:tabular-nums;text-shadow:0 0 22px var(--meter-soft)}
-  .meterbox .val small{font-size:.34em;letter-spacing:.2em;color:var(--dim);margin-left:.4em;text-shadow:none}
-  .meterbox .rate{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;letter-spacing:.06em}
-  .cta{margin-top:34px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-  .dl{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;color:#04140f;
-    background:linear-gradient(95deg,var(--meter),#ffc05a);border:0;border-radius:12px;padding:16px 28px;cursor:pointer;
-    text-decoration:none;box-shadow:0 0 0 0 var(--meter-soft);transition:box-shadow .3s,transform .08s}
-  .dl:hover{box-shadow:0 0 36px var(--meter-soft)}.dl:active{transform:scale(.98)}
-  .ghost{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
-    border:1px solid var(--rule);border-radius:12px;padding:16px 24px;text-decoration:none}
-  .ghost:hover{color:var(--ink);border-color:var(--meter)}
-  .size{font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center;margin-top:14px;letter-spacing:.04em}
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:60px}
-  .step{background:var(--raised);border:1px solid var(--rule);border-radius:14px;padding:22px}
-  .step .n{font-family:var(--mono);font-size:12px;color:var(--meter);letter-spacing:.2em}
-  .step h3{font-size:17px;margin:12px 0 6px;font-weight:600}
-  .step p{font-family:var(--mono);font-size:12.5px;color:var(--dim);line-height:1.65;margin:0}
-  .step code{color:var(--ink);background:#0c1512;padding:1px 6px;border-radius:5px}
-  .note{margin-top:48px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:24px 26px}
-  .note h2{font-size:15px;margin:0 0 10px;font-weight:600}
-  .note p{font-family:var(--mono);font-size:13px;color:var(--dim);line-height:1.7;margin:0}
-  .note b{color:var(--live);font-weight:500}
-  footer{margin-top:50px;font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center;letter-spacing:.06em}
-  footer a{color:var(--dim)}
-  @media(max-width:680px){.steps{grid-template-columns:1fr}}
-  @media(prefers-reduced-motion:reduce){.val{text-shadow:0 0 22px var(--meter-soft)!important}}
-</style>
+<link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
+<nav><div class="nav-in">
+  <a class="mark" href="/">JOULE</a>
+  <span class="links">
+    <a href="/" class="on">Home</a><a href="/how-it-works.html">How it works</a><a href="/operators.html">Operators</a><a href="/agents.html">Agents</a><a href="/network.html">Network</a>
+  </span>
+  <a class="dl" href="https://github.com/PhantomTee/joule/releases/latest">Download</a>
+</div></nav>
+
 <div class="wrap">
-  <nav><span class="mark">JOULE</span><span class="net">ARC TESTNET</span></nav>
-
-  <section class="hero">
-    <div class="eyebrow">DePIN node · pay-per-second inference</div>
+  <section class="hero center">
+    <div class="eyebrow">DePIN · pay-per-second inference on Arc</div>
     <h1>Your idle machine is a <span class="g">USDC faucet</span>.</h1>
-    <p class="sub">Run one file. Your spare GPU/CPU starts answering AI requests for buyer agents and earns USDC by the second — settled on Arc, no human in the loop. Stop anytime; you keep what you metered.</p>
-
+    <p class="sub">Run one file and your spare GPU/CPU starts answering AI requests for agents — earning USDC by the second, settled on Arc, no human in the loop. The buyers are agents too: they discover your node, pay per second, and stop when they have enough.</p>
     <div class="meterbox">
       <div class="lab">a node earning right now</div>
       <div class="val" id="earned">0.000000<small>USDC</small></div>
       <div class="rate">+0.0002 USDC / second while serving</div>
     </div>
-
     <div class="cta">
-      <a class="dl" href="https://github.com/PhantomTee/joule/releases/latest" id="dl">Download the node ↓</a>
-      <a class="ghost" href="https://github.com/PhantomTee/joule">View source</a>
+      <a class="btn" href="https://github.com/PhantomTee/joule/releases/latest">Download the node ↓</a>
+      <a class="ghost" href="/how-it-works.html">How it works</a>
     </div>
-    <p class="size">Windows · ~82 MB · the AI model (~673 MB) downloads once on first run</p>
+    <p class="sub" style="font-size:11px;margin-top:14px">Windows · ~86 MB · the model downloads once on first run</p>
   </section>
 
-  <section class="steps">
-    <div class="step"><div class="n">01</div><h3>Run it</h3><p>Double-click <code>joule-node.exe</code>. No install, no Node, nothing to set up. It fetches a small model on first launch.</p></div>
-    <div class="step"><div class="n">02</div><h3>Point it at your wallet</h3><p>Drop a <code>.env</code> with <code>SELLER_ADDRESS=</code> your Arc wallet beside the exe. That's where your earnings land.</p></div>
-    <div class="step"><div class="n">03</div><h3>Earn while idle</h3><p>Open the operator console to watch USDC accrue per second. Buyer agents discover your node, pay your price, and you keep serving.</p></div>
-  </section>
+  <h2>Three ways in</h2>
+  <div class="grid3">
+    <a class="card" href="/operators.html"><div class="n">EARN</div><h3>Operators</h3><p>Have idle hardware? Run a node and sell your spare compute by the second.</p><span class="more">Run a node →</span></a>
+    <a class="card" href="/agents.html"><div class="n">BUILD</div><h3>Agents</h3><p>Need inference? Pay per second in USDC. No accounts, no API keys — money is the key.</p><span class="more">Use the API →</span></a>
+    <a class="card" href="/network.html"><div class="n">CONNECT</div><h3>Network</h3><p>Nodes register outbound; buyer agents discover and route to the best price.</p><span class="more">See the network →</span></a>
+  </div>
 
-  <section class="note">
-    <h2>Why this is an agent, not a server</h2>
-    <p>Your node <b>sets its own price</b> — it surges when busy, discounts when idle — and <b>advertises itself</b> so other agents can discover and hire it. The buyers are agents too: they find your node, decide if your price fits their budget, pay per second, and stop when they have enough. <b>Software paying software</b>, with USDC on Arc. Your laptop becomes an economic agent in a machine-to-machine market.</p>
-  </section>
-
-  <footer>built on Circle x402 nanopayments · settles on <a href="https://docs.arc.io" target="_blank" rel="noreferrer">Arc</a></footer>
+  <h2>Not a server — an agent</h2>
+  <p class="body">Your node <b>sets its own price</b> (surges when busy, discounts when idle) and <b>advertises itself</b> so other agents can find and hire it. The buyer is an agent that judges the price, streams the answer, and <b>taps stop</b> when satisfied. Software paying software, in USDC, on Arc — and unlike a pay-per-call proxy, the inference runs on <b>your own hardware</b>. <a href="/network.html" style="color:var(--meter)">How Joule differs →</a></p>
 </div>
 
+<footer><div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:0">
+  <span>built on Circle x402 nanopayments · settles on <a href="https://docs.arc.io" target="_blank" rel="noreferrer">Arc</a></span>
+  <span><a href="https://github.com/PhantomTee/joule">GitHub</a> · <a href="https://vouch-arc.vercel.app">Vouch ↗</a></span>
+</div></footer>
+
 <script>
-  // Ambient: a node's earnings ticking up, to make "per second" tangible.
-  var earned=0.0, el=document.getElementById("earned"), reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  var earned=0, el=document.getElementById("earned"), reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
   function render(){el.innerHTML=earned.toFixed(6)+'<small>USDC</small>';}
   if(!reduce){setInterval(function(){earned+=0.0002+Math.random()*0.0001;render();},1000);}
   render();

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Joule · how it works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<nav><div class="nav-in">
+  <a class="mark" href="/">JOULE</a>
+  <span class="links"><a href="/">Home</a><a href="/how-it-works.html" class="on">How it works</a><a href="/operators.html">Operators</a><a href="/agents.html">Agents</a><a href="/network.html">Network</a></span>
+  <a class="dl" href="https://github.com/PhantomTee/joule/releases/latest">Download</a>
+</div></nav>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">the mechanism</div>
+    <h1>Pay for exactly the <span class="g">seconds</span> you use.</h1>
+    <p class="sub">No subscription, no per-call rounding. An agent opens a stream, pays one tiny USDC tick per second of compute, and stops the instant it has enough. The provider only gives away what was paid for.</p>
+  </section>
+
+  <div class="flow">
+    <div class="node"><div class="t">Agent asks</div><div class="d">hits the node's endpoint with a prompt</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">402 → pay</div><div class="d">node replies "payment required"; agent signs a USDC tick</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">Stream + meter</div><div class="d">tokens stream; each second is one paid pull</div></div>
+  </div>
+  <div class="flow" style="grid-template-columns:1fr auto 1fr;margin-top:8px">
+    <div class="node"><div class="t">Tap to stop</div><div class="d">agent stops paying → model is freed instantly</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">Settle on Arc</div><div class="d">ticks batch off-chain, settle as USDC on Arc</div></div>
+  </div>
+
+  <h2>The x402 handshake</h2>
+  <p class="body">The first request gets an HTTP <code>402 Payment Required</code> with the terms (asset = USDC, network = Arc, price for this tick). The agent signs a USDC authorization from its Circle Gateway balance and retries — the node verifies, settles, and serves. <b>No API key, no account.</b> Money is the key.</p>
+
+  <h2>Per-second metering + tap-to-stop</h2>
+  <p class="body">Each "pull" buys one tick (~one second) of streaming. The model is held server-side with backpressure so it <b>can't run ahead of payment</b>. The moment the agent stops pulling, generation halts and the node frees the GPU — so you only ever pay for the seconds you actually consumed.</p>
+
+  <h2>Two autonomous agents</h2>
+  <p class="body">A <b>provider pricing agent</b> quotes a per-second price that surges under load and discounts when the machine is idle. A <b>buyer agent</b> discovers providers, walks away if the price is over its limit, streams, and <b>judges the answer each second</b> — stopping on its own when it's good enough or the budget is hit. Both narrate their reasoning.</p>
+
+  <h2>Settlement</h2>
+  <p class="body">Sub-cent ticks are economical because Circle Gateway <b>batches</b> them off-chain and settles as a single transaction on Arc (sub-second finality, USDC-native gas). Operators withdraw their accrued balance to chain whenever they like.</p>
+
+  <div class="cta" style="margin-top:34px"><a class="btn" href="/operators.html">Run a node →</a><a class="ghost" href="/agents.html">Build on it →</a></div>
+</div>
+
+<footer><div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:0">
+  <span>built on Circle x402 nanopayments · settles on <a href="https://docs.arc.io" target="_blank" rel="noreferrer">Arc</a></span>
+  <span><a href="https://github.com/PhantomTee/joule">GitHub</a></span>
+</div></footer>
+</body>
+</html>

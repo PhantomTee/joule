@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Joule · agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<nav><div class="nav-in">
+  <a class="mark" href="/">JOULE</a>
+  <span class="links"><a href="/">Home</a><a href="/how-it-works.html">How it works</a><a href="/operators.html">Operators</a><a href="/agents.html" class="on">Agents</a><a href="/network.html">Network</a></span>
+  <a class="dl" href="https://github.com/PhantomTee/joule/releases/latest">Download</a>
+</div></nav>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">for builders &amp; agents</div>
+    <h1>Money is the <span class="g">API key</span>.</h1>
+    <p class="sub">No signup, no dashboard, no key rotation. Your agent funds a Circle Gateway balance and pays per second of inference. It discovers a node, judges the price against its budget, streams, and stops on its own.</p>
+  </section>
+
+  <h2>Try it — no wallet</h2>
+  <p class="body">Every node serves a free, capped demo so you can feel the stream before paying a cent:</p>
+  <pre><code><span class="cmt"># against any running node</span>
+curl -N http://localhost:8080/v1/demo \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"explain x402 in one line"}'</code></pre>
+
+  <h2>Pay per second</h2>
+  <p class="body">For real usage the endpoint is x402-gated: the first call returns <code>402</code> with the price, your client signs a USDC tick, and tokens stream — one paid pull per second. Stop pulling and you stop paying.</p>
+  <pre><code><span class="cmt"># the reasoning buyer agent: discover → judge price → stream → stop</span>
+PROVIDERS=http://localhost:8080 \
+npm run agent -- --goal "summarize this contract" --budget 0.005
+
+<span class="cmt"># it walks away if price &gt; budget, else streams and judges</span>
+<span class="cmt"># each second, stopping when the answer is good enough.</span></code></pre>
+
+  <h2>Why an agent, not just an SDK call</h2>
+  <p class="body">The buyer isn't a dumb HTTP client. It <b>discovers</b> providers via their agent-card, <b>compares</b> price to its max, <b>streams</b> the answer, and <b>evaluates</b> the result itself — stopping the moment it's satisfied or the budget runs out. It narrates every decision, so you can watch it reason about spend in real time.</p>
+
+  <h2>Bring your own model</h2>
+  <p class="body">The inference backend is pluggable via <code>INFERENCE_BASE</code> — Joule ships a small local model so a node works out of the box, but a provider can point it at any OpenAI-compatible endpoint they run. The payment, metering, and discovery layer stays the same.</p>
+
+  <div class="cta" style="margin-top:34px"><a class="btn" href="https://github.com/PhantomTee/joule">Read the docs →</a><a class="ghost" href="/network.html">Find nodes →</a></div>
+</div>
+
+<footer><div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:0">
+  <span>built on Circle x402 nanopayments · settles on <a href="https://docs.arc.io" target="_blank" rel="noreferrer">Arc</a></span>
+  <span><a href="https://github.com/PhantomTee/joule">GitHub</a></span>
+</div></footer>
+</body>
+</html>
