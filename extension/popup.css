@@ -1,0 +1,32 @@
+:root {
+  --bg: #0a0f0e; --raised: #121a18; --rule: #1e2a27; --ink: #e8f0ec; --dim: #7c918a;
+  --meter: #ff9f1c; --meter-soft: rgba(255, 159, 28, 0.16); --live: #3fe0a8; --stop: #ff5c49;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --disp: "Space Grotesk", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { width: 320px; margin: 0; background: var(--bg); color: var(--ink); font-family: var(--disp); padding: 16px; }
+.head { display: flex; align-items: center; gap: 10px; }
+.mark { font-family: var(--mono); font-weight: 600; letter-spacing: 0.3em; font-size: 13px; }
+.tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--dim); border: 1px solid var(--rule); border-radius: 3px; padding: 2px 6px; }
+.hero { margin-top: 16px; background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; }
+.hero .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
+.big { font-family: var(--mono); font-weight: 600; color: var(--meter); font-size: 34px; margin-top: 6px; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px var(--meter-soft); }
+.big small { font-size: 0.34em; color: var(--dim); margin-left: 0.4em; letter-spacing: 0.15em; text-shadow: none; }
+.sub { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 8px; }
+.toggle { width: 100%; margin-top: 14px; border: 0; border-radius: 11px; padding: 13px; font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+.toggle.off { background: linear-gradient(95deg, var(--meter), #ffc05a); color: #04140f; }
+.toggle.on { background: transparent; color: var(--stop); border: 1px solid var(--stop); }
+.bar { margin-top: 12px; position: relative; height: 22px; background: var(--raised); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.barfill { position: absolute; inset: 0; width: 0%; background: var(--meter-soft); transition: width 0.3s; }
+.bartext { position: relative; font-family: var(--mono); font-size: 10px; color: var(--dim); line-height: 22px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.stats > div { background: var(--raised); border: 1px solid var(--rule); border-radius: 10px; padding: 12px; }
+.stats .n { font-family: var(--mono); font-weight: 600; font-size: 18px; color: var(--ink); }
+.stats .l { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 4px; letter-spacing: 0.06em; }
+.cfg { margin-top: 14px; }
+.cfg summary { font-family: var(--mono); font-size: 11px; color: var(--dim); cursor: pointer; letter-spacing: 0.08em; }
+.cfg label { display: block; font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px; }
+.cfg input, .cfg select { width: 100%; margin-top: 5px; background: var(--bg); border: 1px solid var(--rule); border-radius: 8px; color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 9px; }
+.cfg .note { font-family: var(--mono); font-size: 10px; color: var(--dim); line-height: 1.5; margin-top: 10px; }
+.foot { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 14px; text-align: center; letter-spacing: 0.04em; }

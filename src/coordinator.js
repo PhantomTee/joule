@@ -31,6 +31,16 @@ async function readJson(req) {
 }
 const live = () => [...nodes.values()].filter((n) => Date.now() - n.lastSeen < TTL_MS);
 
+// --- lite-node job queue ---------------------------------------------------
+// Browser-extension ("lite") nodes can't accept inbound connections, so instead
+// of buyers connecting to them, buyers POST a job here and lite nodes PULL it:
+//   POST /jobs          buyer submits { prompt, maxTokens } -> { id }
+//   GET  /jobs/claim    a lite node claims the oldest pending job
+//   POST /jobs/result   the lite node returns { id, worker, output, seconds }
+//   GET  /jobs/:id      buyer polls for the result
+const jobs = new Map(); // id -> job record
+let jobSeq = 0;
+
 setInterval(() => {
   for (const [id, n] of nodes) if (Date.now() - n.lastSeen > TTL_MS * 2) nodes.delete(id);
 }, 10000).unref?.();
@@ -74,6 +84,58 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && p === "/nodes") {
     return send(res, 200, { nodes: live(), count: live().length });
+  }
+
+  if (req.method === "POST" && p === "/jobs") {
+    const b = await readJson(req);
+    if (!b?.prompt) return send(res, 400, { error: "prompt required" });
+    const id = "j" + ++jobSeq;
+    jobs.set(id, {
+      id,
+      prompt: String(b.prompt).slice(0, 2000),
+      maxTokens: Math.min(Number(b.maxTokens) || 128, 512),
+      status: "pending",
+      output: "",
+      worker: null,
+      workerName: null,
+      seconds: 0,
+      createdAt: Date.now(),
+    });
+    return send(res, 200, { id });
+  }
+
+  if (req.method === "GET" && p === "/jobs/claim") {
+    const worker = url.searchParams.get("worker");
+    let job = null;
+    for (const j of jobs.values()) if (j.status === "pending") { job = j; break; }
+    if (!job) return send(res, 200, { none: true });
+    job.status = "claimed";
+    job.worker = worker || null;
+    job.claimedAt = Date.now();
+    return send(res, 200, { id: job.id, prompt: job.prompt, maxTokens: job.maxTokens });
+  }
+
+  if (req.method === "POST" && p === "/jobs/result") {
+    const b = await readJson(req);
+    const job = b?.id && jobs.get(b.id);
+    if (!job) return send(res, 404, { error: "unknown job" });
+    job.status = "done";
+    job.output = String(b.output || "");
+    job.seconds = Number(b.seconds) || 0;
+    job.doneAt = Date.now();
+    const n = b.worker && nodes.get(b.worker);
+    if (n) {
+      job.workerName = n.name;
+      n.secondsSold += job.seconds;
+      n.earnedUsdc += job.seconds * (n.pricePerSecond || 0);
+    }
+    return send(res, 200, { ok: true });
+  }
+
+  if (req.method === "GET" && p.startsWith("/jobs/")) {
+    const job = jobs.get(p.slice("/jobs/".length));
+    if (!job) return send(res, 404, { error: "unknown job" });
+    return send(res, 200, { id: job.id, status: job.status, output: job.output, seconds: job.seconds, workerName: job.workerName });
   }
 
   if (req.method === "GET" && p === "/") {

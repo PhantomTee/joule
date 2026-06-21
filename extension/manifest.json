@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Joule — lite node",
+  "version": "0.1.0",
+  "description": "Earn USDC by running small AI inference jobs in your browser with WebGPU. A zero-install Joule node.",
+  "permissions": ["storage", "offscreen"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Joule lite node" },
+  "minimum_chrome_version": "116"
+}

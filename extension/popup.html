@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="head">
+      <span class="mark">JOULE</span><span class="tag">LITE NODE</span>
+    </div>
+
+    <div class="hero">
+      <div class="k">Earned this session</div>
+      <div class="big"><span id="earned">0.000000</span><small>USDC</small></div>
+      <div class="sub"><span id="status">offline</span></div>
+    </div>
+
+    <button id="toggle" class="toggle off">Go online</button>
+
+    <div class="bar" id="barWrap" hidden>
+      <div class="barfill" id="barfill"></div>
+      <div class="bartext" id="bartext"></div>
+    </div>
+
+    <div class="stats">
+      <div><div class="n" id="jobs">0</div><div class="l">jobs done</div></div>
+      <div><div class="n" id="engine">—</div><div class="l">engine</div></div>
+    </div>
+
+    <details class="cfg">
+      <summary>Settings</summary>
+      <label>Coordinator URL<input id="coord" placeholder="http://localhost:19150" /></label>
+      <label>Payout wallet (Arc)<input id="payout" placeholder="0x…" /></label>
+      <label>Model<select id="model">
+        <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen2.5 0.5B (smallest)</option>
+        <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen2.5 1.5B</option>
+        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B</option>
+      </select></label>
+      <div class="note">First job downloads the model to your browser (cached after). Runs on WebGPU; falls back to a labeled stub until you build the model bundle.</div>
+    </details>
+
+    <div class="foot">Idle browser → paid inference, settled on Arc.</div>
+    <script src="popup.js"></script>
+  </body>
+</html>

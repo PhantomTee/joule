@@ -1,0 +1,13 @@
+{
+  "name": "joule-lite-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Joule lite node — a browser extension that earns USDC running small AI inference jobs via WebGPU.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@mlc-ai/web-llm": "^0.2.46",
+    "esbuild": "^0.24.0"
+  }
+}
