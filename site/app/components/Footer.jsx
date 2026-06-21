@@ -9,8 +9,7 @@ export default function Footer() {
           </a>
         </span>
         <span>
-          <a href="https://github.com/PhantomTee/joule">GitHub</a> ·{" "}
-          <a href="https://vouch-arc.vercel.app">Vouch ↗</a>
+          <a href="https://github.com/PhantomTee/joule">GitHub</a>
         </span>
       </div>
     </footer>
