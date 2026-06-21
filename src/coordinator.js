@@ -60,6 +60,7 @@ const server = http.createServer(async (req, res) => {
       model: b.model || "?",
       pricePerSecond: b.pricePerSecond ?? null,
       sellerAddress: b.sellerAddress || null,
+      kind: b.kind === "lite" ? "lite" : "native",
       region: b.region || null,
       secondsSold: prev.secondsSold || 0,
       earnedUsdc: prev.earnedUsdc || 0,
@@ -167,6 +168,7 @@ const NETWORK_HTML = `<!doctype html>
   .node{background:var(--raised);border:1px solid var(--rule);border-radius:13px;padding:18px}
   .node .top{display:flex;align-items:center;justify-content:space-between}
   .node .nm{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--ink)}
+  .node .lite{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--live);border:1px solid var(--live);border-radius:999px;padding:1px 6px;margin-left:8px;vertical-align:middle;text-transform:uppercase}
   .node .dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live)}
   .node .dot.busy{background:var(--meter);box-shadow:0 0 8px var(--meter)}
   .node .model{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;letter-spacing:.04em}
@@ -199,7 +201,7 @@ const NETWORK_HTML = `<!doctype html>
       var tsec=0,tusd=0,tact=0;
       $("grid").innerHTML=d.nodes.map(function(n){
         tsec+=n.secondsSold||0; tusd+=Number(n.earnedUsdc||0); tact+=n.activeSessions||0;
-        return '<div class="node"><div class="top"><span class="nm">'+n.name+'</span><span class="dot'+(n.activeSessions>0?' busy':'')+'"></span></div>'+
+        return '<div class="node"><div class="top"><span class="nm">'+n.name+(n.kind==='lite'?' <span class="lite">lite</span>':'')+'</span><span class="dot'+(n.activeSessions>0?' busy':'')+'"></span></div>'+
           '<div class="model">'+n.model+'</div>'+
           '<div class="price">'+(n.pricePerSecond!=null?n.pricePerSecond:'—')+'<small> USDC/sec</small></div>'+
           '<div class="stats"><span><b>'+(n.secondsSold||0)+'</b> sec sold</span><span><b>'+Number(n.earnedUsdc||0).toFixed(4)+'</b> USDC</span><span><b>'+(n.activeSessions||0)+'</b> live</span></div>'+
