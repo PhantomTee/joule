@@ -9,6 +9,28 @@ its own price by demand. Both sides are autonomous: a real agent-to-agent market
 
 Pure Node (≥22), no framework. Real Circle settlement — no mock.
 
+**Try it in 5 seconds, no wallet:** with a node running, open [`/try`](http://localhost:19131/try) or:
+```bash
+curl -sN -X POST http://localhost:19131/v1/demo -H 'Content-Type: application/json' -d '{"prompt":"What is x402?"}'
+```
+
+## Why Joule is different
+
+Pay-per-inference is a crowded idea — so here's the precise lane Joule occupies versus its neighbors:
+
+| | What it really is | Compute | Rail |
+|---|---|---|---|
+| Hosted APIs (OpenAI/Anthropic) | accounts, cards, API keys | their datacenters | fiat/cards |
+| **InferPay** | x402 **proxy that resells hosted LLMs** | someone else's API | Circle/x402/Arc |
+| **darkbloom** | private inference + Apple attestation | idle **Apple Silicon** | its own coordinator |
+| **wavefy** | one model **sharded** across P2P devices | many devices | Aptos |
+| **Joule** | **your own idle hardware** serves the model | idle GPU/CPU you own | Circle/x402/Arc |
+
+Joule is the only one combining **real idle local compute** (not a proxy), **per-second metering + tap-to-stop**
+(not per-call), **two autonomous agents with visible reasoning**, and **Circle x402 on Arc**. The distinction
+from InferPay matters most: InferPay is Stripe-for-OpenAI; **Joule sells the operator's actual hardware** —
+that's the DePIN thesis. The inference happens on *your* machine, and you keep the revenue.
+
 ## The two agents
 
 - **Provider pricing agent** ([pricing.js](src/pricing.js)) — quotes a per-second price that **surges when

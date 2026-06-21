@@ -11,6 +11,7 @@ import { config } from "./config.js";
 import { createServer } from "./server.js";
 import { IdleMonitor } from "./idle.js";
 import * as inference from "./inference.js";
+import { startCoordinatorClient } from "./coordinator-client.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const baseDir = path.dirname(process.execPath);
@@ -68,8 +69,11 @@ async function main() {
     console.log("  press Ctrl+C to stop earning.\n");
   });
 
+  const coordinator = startCoordinatorClient();
+
   const shutdown = () => {
     idleMonitor.stop();
+    coordinator?.stop?.();
     server.close(() => process.exit(0));
   };
   process.on("SIGINT", shutdown);

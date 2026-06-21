@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { createServer } from "./server.js";
 import { IdleMonitor } from "./idle.js";
 import * as inference from "./inference.js";
+import { startCoordinatorClient } from "./coordinator-client.js";
 
 async function main() {
   console.log("Joule provider starting…");
@@ -33,9 +34,12 @@ async function main() {
     console.log("  GET  /stats                  earnings + system\n");
   });
 
+  const coordinator = startCoordinatorClient();
+
   const shutdown = () => {
     console.log("\nshutting down…");
     idleMonitor.stop();
+    coordinator?.stop?.();
     server.close(() => process.exit(0));
   };
   process.on("SIGINT", shutdown);

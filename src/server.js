@@ -16,7 +16,14 @@ import { Earnings } from "./earnings.js";
 import * as sysmon from "./sysmon.js";
 import { DASHBOARD_HTML } from "./dashboard.js";
 import { NODE_CONSOLE_HTML } from "./node-console.js";
+import { TRY_HTML } from "./try-page.js";
 import { PricingAgent } from "./pricing.js";
+import { streamChat } from "./inference.js";
+
+// Free "try it, no wallet" demo — capped + lightly rate-limited so it can't be abused.
+let demoInFlight = 0;
+let lastDemoAt = 0;
+const DEMO_MAX_TOKENS = 80;
 
 // Lazy seller-side GatewayClient, used to read this node's accrued earnings.
 let sellerGw = null;
@@ -134,6 +141,34 @@ export function createServer({ idleMonitor } = {}) {
     if (req.method === "GET" && path === "/") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       return res.end(DASHBOARD_HTML);
+    }
+
+    // --- "try it, no wallet" demo: a free, capped taste of the inference ---
+    if (req.method === "GET" && path === "/try") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      return res.end(TRY_HTML);
+    }
+    if (req.method === "POST" && path === "/v1/demo") {
+      if (demoInFlight >= 2 || Date.now() - lastDemoAt < 1200) {
+        return send(res, 429, { error: "demo_busy", reason: "free demo is rate-limited — try again in a moment, or run a real paid session" });
+      }
+      const body = await readJson(req);
+      const prompt = (body && (body.prompt || body.messages?.[0]?.content)) || "Say hello in one sentence.";
+      demoInFlight++;
+      lastDemoAt = Date.now();
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
+      try {
+        await streamChat({
+          body: { messages: [{ role: "user", content: String(prompt).slice(0, 600) }], max_tokens: DEMO_MAX_TOKENS },
+          onToken: (t) => res.write(t),
+        });
+      } catch (e) {
+        res.write(`\n[demo unavailable: ${e.message}]`);
+      } finally {
+        demoInFlight--;
+        res.end();
+      }
+      return;
     }
 
     // --- DePIN operator console (free) ---
