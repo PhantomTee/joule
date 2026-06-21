@@ -94,6 +94,17 @@ export const BUYER_CONSOLE_HTML = `<!doctype html>
   footer{margin-top:20px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--dim);
     display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
+  .think{margin-top:14px;background:var(--window);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+  .think .hd{font-family:var(--mono);font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--live);
+    padding:11px 16px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:9px}
+  .think .hd .d{width:7px;height:7px;border-radius:50%;background:#33403c}
+  .think .hd .d.on{background:var(--live);box-shadow:0 0 8px var(--live);animation:pulse 1.3s ease-in-out infinite}
+  .think .log{padding:12px 16px;max-height:190px;overflow:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7}
+  .think .t{color:var(--ink);padding:3px 0;opacity:0;animation:tin .3s forwards}
+  .think .t::before{content:"▸ ";color:var(--live)}
+  .think .t.dim{color:var(--dim);opacity:.6}.think .t.dim::before{content:""}
+  @keyframes tin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   @media(max-width:720px){
     .grid{grid-template-columns:1fr}
     .ask{flex-wrap:wrap}
@@ -117,6 +128,11 @@ export const BUYER_CONSOLE_HTML = `<!doctype html>
     <input id="prompt" placeholder="Ask the network anything" value="Explain Circle Arc in three sentences." />
     <button class="btn" id="start" type="submit">Start — pays per second</button>
   </form>
+
+  <div class="think">
+    <div class="hd"><span class="d" id="thinkdot"></span>Agent reasoning</div>
+    <div class="log" id="think"><div class="t dim">The agent's decisions appear here — which provider it picks, when it judges the answer good enough, and why it stops.</div></div>
+  </div>
 
   <div class="grid">
     <div class="stream">
@@ -167,12 +183,14 @@ export const BUYER_CONSOLE_HTML = `<!doctype html>
     a.scrollTop=a.scrollHeight;
   }
   function endCaret(){ var c=$("answer").querySelector(".caret"); if(c) c.remove(); }
+  function think(t){ var log=$("think"); var d=document.createElement("div"); d.className="t"; d.textContent=t; log.appendChild(d); log.scrollTop=log.scrollHeight; }
 
   $("ask").addEventListener("submit", function(e){
     e.preventDefault();
     if(running) return;
     var prompt=$("prompt").value.trim(); if(!prompt) return;
     $("answer").innerHTML=""; started=false; setSpend(0); $("secs").textContent="0"; $("phase").textContent="opening";
+    $("think").innerHTML=""; $("thinkdot").className="d on";
     setRunning(true);
     fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt})})
       .then(function(r){return r.json()}).then(function(d){
@@ -192,12 +210,14 @@ export const BUYER_CONSOLE_HTML = `<!doctype html>
     es=new EventSource("/api/events/"+id);
     es.onmessage=function(m){
       var ev=JSON.parse(m.data);
-      if(ev.type==="token"){ appendToken(ev.text); if(ev.spent!=null) setSpend(ev.spent); }
+      if(ev.type==="thought"){ think(ev.text); }
+      else if(ev.type==="token"){ appendToken(ev.text); if(ev.spent!=null) setSpend(ev.spent); }
       else if(ev.type==="tick"){ setSpend(ev.spent); $("secs").textContent=Math.round(ev.seconds||0); }
       else if(ev.type==="status"){ $("phase").textContent=ev.phase; if(ev.spent!=null) setSpend(ev.spent); }
       else if(ev.type==="end"){
-        endCaret(); setRunning(false); es.close();
+        endCaret(); setRunning(false); es.close(); $("thinkdot").className="d";
         if(ev.error){ $("phase").textContent="provider didn't answer — is it running on :19131?"; return; }
+        if(ev.walked){ $("phase").textContent="walked away — price above limit"; return; }
         if(ev.stopped){
           var a=$("answer"); var cut=document.createElement("div"); cut.className="cut";
           cut.textContent="— stopped at "+(ev.seconds||0)+"s · you paid "+Number(ev.spent||0).toFixed(6)+" USDC and nothing more —";
