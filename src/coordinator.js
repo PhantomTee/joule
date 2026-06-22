@@ -11,6 +11,8 @@
 //   GET  /           network dashboard
 
 import http from "node:http";
+import { usdcToAtomic, atomicToUsdc } from "./config.js";
+import { charge, paymentRequiredHeader } from "./payment.js";
 
 const PORT = Number(process.env.COORDINATOR_PORT || 19150);
 const TTL_MS = 40000;
@@ -37,9 +39,18 @@ const live = () => [...nodes.values()].filter((n) => Date.now() - n.lastSeen < T
 //   POST /jobs          buyer submits { prompt, maxTokens } -> { id }
 //   GET  /jobs/claim    a lite node claims the oldest pending job
 //   POST /jobs/result   the lite node returns { id, worker, output, seconds }
-//   GET  /jobs/:id      buyer polls for the result
+//   GET  /jobs/:id      buyer polls status; once paid, also returns the output
+//   POST /jobs/:id/pay  x402-gated settlement, straight to the WORKER's own
+//                       payout wallet (the coordinator never holds the funds).
+//                       Real USDC on Arc via the same facilitator the native
+//                       node uses — only the payTo differs per job.
 const jobs = new Map(); // id -> job record
 let jobSeq = 0;
+
+function payment402(res, requirements, endpoint, reason) {
+  res.writeHead(402, { "Content-Type": "application/json", "PAYMENT-REQUIRED": paymentRequiredHeader(requirements, endpoint), "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify({ error: "payment_required", reason: reason ?? null }));
+}
 
 setInterval(() => {
   for (const [id, n] of nodes) if (Date.now() - n.lastSeen > TTL_MS * 2) nodes.delete(id);
@@ -110,8 +121,12 @@ const server = http.createServer(async (req, res) => {
     let job = null;
     for (const j of jobs.values()) if (j.status === "pending") { job = j; break; }
     if (!job) return send(res, 200, { none: true });
+    const n = worker && nodes.get(worker);
     job.status = "claimed";
     job.worker = worker || null;
+    job.workerName = n?.name ?? null;
+    job.payoutAddress = n?.sellerAddress ?? null; // frozen now so price/payout can't shift mid-job
+    job.pricePerSecond = n?.pricePerSecond ?? 0;
     job.claimedAt = Date.now();
     return send(res, 200, { id: job.id, prompt: job.prompt, maxTokens: job.maxTokens });
   }
@@ -122,21 +137,51 @@ const server = http.createServer(async (req, res) => {
     if (!job) return send(res, 404, { error: "unknown job" });
     job.status = "done";
     job.output = String(b.output || "");
-    job.seconds = Number(b.seconds) || 0;
+    job.seconds = Math.max(1, Number(b.seconds) || 0);
     job.doneAt = Date.now();
-    const n = b.worker && nodes.get(b.worker);
-    if (n) {
-      job.workerName = n.name;
-      n.secondsSold += job.seconds;
-      n.earnedUsdc += job.seconds * (n.pricePerSecond || 0);
-    }
+    // Earnings/secondsSold are credited only on real settlement (POST /jobs/:id/pay),
+    // not here — this is just the worker reporting what it produced.
     return send(res, 200, { ok: true });
+  }
+
+  if (req.method === "POST" && p.match(/^\/jobs\/[^/]+\/pay$/)) {
+    const id = p.split("/")[2];
+    const job = jobs.get(id);
+    if (!job) return send(res, 404, { error: "unknown job" });
+    if (job.status !== "done") return send(res, 409, { error: "job not done yet", status: job.status });
+    if (!job.payoutAddress) return send(res, 402, { error: "worker has no payout wallet set" });
+
+    const amountAtomic = Math.max(usdcToAtomic(job.seconds * job.pricePerSecond), 1);
+    const signatureHeader = req.headers["payment-signature"];
+    const result = await charge({ signatureHeader, amountAtomic, endpoint: `/jobs/${id}/pay`, payTo: job.payoutAddress });
+    if (!result.settled) return payment402(res, result.requirements, `/jobs/${id}/pay`, result.reason);
+
+    if (!job.paid) {
+      job.paid = true;
+      job.txHash = result.transaction;
+      job.paidUsdc = atomicToUsdc(amountAtomic);
+      const n = job.worker && nodes.get(job.worker);
+      if (n) {
+        n.secondsSold += job.seconds;
+        n.earnedUsdc += job.paidUsdc;
+      }
+    }
+    return send(res, 200, { ok: true, output: job.output, seconds: job.seconds, paidUsdc: job.paidUsdc, txHash: job.txHash });
   }
 
   if (req.method === "GET" && p.startsWith("/jobs/")) {
     const job = jobs.get(p.slice("/jobs/".length));
     if (!job) return send(res, 404, { error: "unknown job" });
-    return send(res, 200, { id: job.id, status: job.status, output: job.output, seconds: job.seconds, workerName: job.workerName });
+    // Output is withheld until paid — mirrors the native node's pay-then-stream model.
+    return send(res, 200, {
+      id: job.id,
+      status: job.status,
+      seconds: job.seconds,
+      workerName: job.workerName,
+      pricePerSecond: job.pricePerSecond,
+      paid: !!job.paid,
+      output: job.paid ? job.output : null,
+    });
   }
 
   if (req.method === "GET" && p === "/") {

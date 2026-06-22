@@ -19,6 +19,7 @@ function setToggle(on) {
   t.textContent = on ? "Go offline" : "Go online";
   t.className = "toggle " + (on ? "on" : "off");
   t.dataset.on = on ? "1" : "";
+  document.body.classList.toggle("online", on);
 }
 
 function render(rt) {

@@ -106,6 +106,18 @@ async function heartbeat(s) {
       body: JSON.stringify({ id: s.workerId, secondsSold: undefined, earnedUsdc: undefined, pricePerSecond: PRICE_PER_SEC }),
     });
   } catch {}
+  await syncEarnings(s);
+}
+
+// Earnings are only real once a buyer actually pays (POST /jobs/:id/pay on the
+// coordinator, straight to this node's own wallet) — read back the coordinator's
+// authoritative total instead of estimating locally.
+async function syncEarnings(s) {
+  try {
+    const { nodes } = await fetch(`${s.coordinatorUrl}/nodes`).then((r) => r.json());
+    const self = nodes.find((n) => n.id === s.workerId);
+    if (self) await pushState({ earned: Number(self.earnedUsdc) || 0, secondsSold: Number(self.secondsSold) || 0 });
+  } catch {}
 }
 
 async function poll() {
@@ -136,7 +148,8 @@ async function poll() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: job.id, worker: s.workerId, output, seconds }),
     });
-    await pushState({ jobsDone: state.jobsDone + 1, earned: +(state.earned + seconds * PRICE_PER_SEC).toFixed(6), status: "online · idle" });
+    await pushState({ jobsDone: state.jobsDone + 1, status: "online · idle, awaiting payment" });
+    await syncEarnings(s); // usually still 0 here — credited once the buyer actually pays
   } catch (err) {
     await pushState({ status: `job failed: ${err.message}` });
   } finally {
@@ -148,6 +161,7 @@ async function poll() {
 async function start() {
   const s = await settings();
   await register(s);
+  await syncEarnings(s); // pick up this node's real on-chain-settled total, if any
   loadEngine(s.model); // lazy; doesn't block polling
   clearInterval(pollTimer);
   clearInterval(beatTimer);

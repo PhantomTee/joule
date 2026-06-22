@@ -5,13 +5,16 @@
 import { config } from "./config.js";
 
 // Build x402 "exact" payment requirements for an amount in atomic USDC (6 dp).
-export function buildRequirements(amountAtomic, { endpoint } = {}) {
+// `payTo` defaults to this node's own seller address, but callers settling on
+// behalf of someone else (e.g. the coordinator paying out a specific lite
+// worker) can override it per call.
+export function buildRequirements(amountAtomic, { endpoint, payTo } = {}) {
   return {
     scheme: "exact",
     network: config.arc.network,
     asset: config.arc.usdc,
     amount: String(amountAtomic),
-    payTo: config.sellerAddress,
+    payTo: payTo || config.sellerAddress,
     maxTimeoutSeconds: config.maxTimeoutSeconds,
     extra: {
       name: "GatewayWalletBatched",
@@ -35,9 +38,6 @@ let facilitatorPromise = null;
 async function getFacilitator() {
   if (!facilitatorPromise) {
     facilitatorPromise = (async () => {
-      if (!config.sellerAddress) {
-        throw new Error("SELLER_ADDRESS is required for real x402 settlement");
-      }
       const { BatchFacilitatorClient } = await import(
         "@circle-fin/x402-batching/server"
       );
@@ -51,8 +51,8 @@ async function getFacilitator() {
  * Verify + settle a payment for `amountAtomic` USDC.
  * @returns {Promise<{settled:boolean, status:number, payer?:string, transaction?:string, reason?:string}>}
  */
-export async function charge({ signatureHeader, amountAtomic, endpoint }) {
-  const requirements = buildRequirements(amountAtomic, { endpoint });
+export async function charge({ signatureHeader, amountAtomic, endpoint, payTo }) {
+  const requirements = buildRequirements(amountAtomic, { endpoint, payTo });
 
   if (!signatureHeader) {
     return { settled: false, status: 402, requirements };
@@ -61,6 +61,10 @@ export async function charge({ signatureHeader, amountAtomic, endpoint }) {
   const payload = decodeSignature(signatureHeader);
   if (!payload) {
     return { settled: false, status: 402, reason: "malformed_signature", requirements };
+  }
+
+  if (!requirements.payTo) {
+    return { settled: false, status: 402, reason: "no_payout_wallet", requirements };
   }
 
   const facilitator = await getFacilitator();

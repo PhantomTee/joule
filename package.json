@@ -18,7 +18,8 @@
     "seed": "node --env-file-if-exists=.env scripts/seed-traffic.mjs",
     "withdraw": "node --env-file-if-exists=.env scripts/withdraw-seller.mjs",
     "test": "node --test",
-    "lite:ask": "node --env-file-if-exists=.env scripts/lite-buyer.mjs"
+    "lite:ask": "node --env-file-if-exists=.env scripts/lite-buyer.mjs",
+    "buy-lite": "node --env-file-if-exists=.env scripts/buy-lite.mjs"
   },
   "keywords": [
     "x402",
