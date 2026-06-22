@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: joule-coordinator
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node src/coordinator.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 22.5.0

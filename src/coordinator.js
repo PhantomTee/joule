@@ -14,7 +14,9 @@ import http from "node:http";
 import { usdcToAtomic, atomicToUsdc } from "./config.js";
 import { charge, paymentRequiredHeader } from "./payment.js";
 
-const PORT = Number(process.env.COORDINATOR_PORT || 19150);
+// Render/Railway/Fly inject PORT for the platform's own routing; COORDINATOR_PORT
+// is the local-dev override so it doesn't collide with other Joule services.
+const PORT = Number(process.env.PORT || process.env.COORDINATOR_PORT || 19150);
 const TTL_MS = 40000;
 const nodes = new Map(); // id -> node record
 
