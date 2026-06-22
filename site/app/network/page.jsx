@@ -41,21 +41,25 @@ export default function Network() {
         </div>
       </div>
 
-      <h2>Run the network locally</h2>
+      <h2>Already live — join with zero setup</h2>
       <p className="body">
-        The coordinator is dependency-free. Start it, point nodes at it, and open the network dashboard to watch nodes
-        appear with their live rates:
+        Every node joins{" "}
+        <a href="https://joule-coordinator.onrender.com" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+          the shared Joule network
+        </a>{" "}
+        automatically — nobody runs or hosts a coordinator just to be discoverable. Download the node, run it, and it
+        announces itself outbound. Want a private network instead? Run your own and point your nodes at it:
       </p>
       <pre>
         <code>
-          <span className="cmt"># start the directory</span>
+          <span className="cmt"># optional: your own private directory instead of the shared one</span>
           {`
 npm run coordinator                 `}
           <span className="cmt"># dashboard on :19150</span>
           {`
 
 `}
-          <span className="cmt"># each node joins by announcing outbound — no port-forwarding</span>
+          <span className="cmt"># point a node at it (or "off" to run solo, no network)</span>
           {`
 COORDINATOR_URL=http://host:19150 ./joule-node.exe`}
         </code>

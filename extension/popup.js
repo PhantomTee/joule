@@ -3,12 +3,13 @@
 // storage and rendered live.
 
 const $ = (id) => document.getElementById(id);
+const DEFAULT_COORDINATOR_URL = "https://joule-coordinator.onrender.com";
 
 chrome.runtime.sendMessage({ cmd: "ensureOffscreen" }); // make sure the worker page exists
 
 async function loadSettings() {
   const s = await chrome.storage.local.get(["coordinatorUrl", "payout", "model", "online"]);
-  $("coord").value = s.coordinatorUrl || "http://localhost:19150";
+  $("coord").value = s.coordinatorUrl || DEFAULT_COORDINATOR_URL;
   $("payout").value = s.payout || "";
   if (s.model) $("model").value = s.model;
   setToggle(!!s.online);

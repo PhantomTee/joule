@@ -1,14 +1,16 @@
-// Provider → coordinator registration. If COORDINATOR_URL is set, the node
-// announces itself OUTBOUND (register + heartbeat over HTTP) so it shows up on the
-// network without any inbound port-forwarding. Heartbeats carry live price + stats,
-// read from the node's own /agent-card and /stats.
+// Provider → coordinator registration. By default every node joins the shared,
+// always-on Joule network (config.defaultCoordinatorUrl) — announcing itself
+// OUTBOUND (register + heartbeat over HTTP), so it's discoverable with zero
+// setup and no inbound port-forwarding. Set COORDINATOR_URL to point at a
+// different directory, or to "off"/"none" to run solo (no network at all).
 
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 
 export function startCoordinatorClient() {
-  const coord = process.env.COORDINATOR_URL;
-  if (!coord) return null;
+  const raw = process.env.COORDINATOR_URL;
+  if (raw && /^(off|none|0|false)$/i.test(raw.trim())) return null;
+  const coord = (raw || config.defaultCoordinatorUrl).replace(/\/$/, "");
 
   const id = process.env.NODE_ID || `joule-${randomUUID().slice(0, 8)}`;
   const name = process.env.NODE_NAME || `Joule ${id.slice(-4)}`;

@@ -29,22 +29,23 @@ payment to settlement. The job's output is withheld until payment settles — pa
 then read, exactly like the native node's per-second pulls.
 
 ```bash
-# 1) start the coordinator (in the idle-compute repo)
-npm run coordinator                      # http://localhost:19150
-
-# 2) load the extension
+# 1) load the extension
 #    chrome://extensions → Developer mode → Load unpacked → select this /extension folder
+#    it joins the shared, always-on network (joule-coordinator.onrender.com) by
+#    default — nothing to start. Want a private network instead? Run your own
+#    (`npm run coordinator`) and put its URL in the popup's Coordinator URL field.
 
-# 3) open the popup → set Coordinator URL + payout wallet → "Go online"
+# 2) open the popup → set a payout wallet → "Go online"
 
-# 4) pay for a real job (needs BUYER_PRIVATE_KEY funded on Arc testnet in .env)
-npm run buy-lite -- --prompt "Explain x402 in one line"
+# 3) pay for a real job (needs BUYER_PRIVATE_KEY funded on Arc testnet in .env)
+npm run buy-lite -- --coordinator https://joule-coordinator.onrender.com --prompt "Explain x402 in one line"
 ```
 
 The popup shows live status, jobs done, and **Settled on Arc** — the node's real,
 coordinator-confirmed earnings (it only updates once a buyer's payment actually
-clears, so it can lag a few seconds behind "jobs done"). The coordinator's network
-dashboard (`http://localhost:19150`) lists the lite node alongside native nodes.
+clears, so it can lag a few seconds behind "jobs done"). The network dashboard at
+[joule-coordinator.onrender.com](https://joule-coordinator.onrender.com) lists the
+lite node alongside native nodes.
 
 To test the loop without installing the extension, `node scripts/sim-lite-worker.mjs`
 stands in for a browser worker (claim → deliver) so you can drive `buy-lite` end to
@@ -65,9 +66,6 @@ npm run build      # writes vendor/web-llm.js
 
 ## Honest scope
 
-- Earnings are credited by the coordinator (demo accounting). Real per-second USDC
-  settlement for the lite path would add the in-browser x402 / Gateway signing flow —
-  the native node already does real settlement.
 - Requires a WebGPU-capable Chrome (116+). Small models only; the native node stays
   the heavy tier.
 - The lite node runs **real local inference**, never a proxy to a hosted API — that

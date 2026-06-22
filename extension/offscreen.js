@@ -2,6 +2,8 @@
 // the coordinator for jobs, runs them locally (WebGPU via web-llm), and posts
 // results back. All state is mirrored to chrome.storage so the popup can render it.
 
+// The shared, always-on Joule network — joined by default with zero setup.
+const DEFAULT_COORDINATOR_URL = "https://joule-coordinator.onrender.com";
 const PRICE_PER_SEC = 0.0001; // lite-node rate (USDC/sec) — small models, small price
 const DEFAULT_MODEL = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 const POLL_MS = 2500;
@@ -28,7 +30,7 @@ async function settings() {
     await chrome.storage.local.set({ workerId: s.workerId });
   }
   return {
-    coordinatorUrl: (s.coordinatorUrl || "http://localhost:19150").replace(/\/$/, ""),
+    coordinatorUrl: (s.coordinatorUrl || DEFAULT_COORDINATOR_URL).replace(/\/$/, ""),
     payout: s.payout || "",
     model: s.model || DEFAULT_MODEL,
     online: !!s.online,

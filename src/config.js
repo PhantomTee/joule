@@ -60,6 +60,12 @@ export const config = {
 
   // --- Storage ---
   earningsFile: process.env.EARNINGS_FILE || "./data/earnings.jsonl",
+
+  // --- Network ---
+  // The shared, always-on Joule network directory. Every node joins this by
+  // default — nobody needs to host or set a coordinator just to be discoverable.
+  // Set COORDINATOR_URL to point at a different one, or "off" to run solo.
+  defaultCoordinatorUrl: "https://joule-coordinator.onrender.com",
 };
 
 // USDC has 6 decimals on Arc's ERC-20 interface.
