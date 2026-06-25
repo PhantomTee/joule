@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LiveNetwork from "./LiveNetwork";
 
 export const metadata = { title: "Joule · network" };
 
@@ -41,7 +42,9 @@ export default function Network() {
         </div>
       </div>
 
-      <h2>Already live — join with zero setup</h2>
+      <LiveNetwork />
+
+      <h2 style={{ marginTop: 46 }}>Already live — join with zero setup</h2>
       <p className="body">
         Every node joins{" "}
         <a href="https://joule-coordinator.onrender.com" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
