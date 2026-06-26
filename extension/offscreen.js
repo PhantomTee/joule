@@ -1,9 +1,19 @@
-// The lite node's engine + work loop. Reads settings from chrome.storage, polls
-// the coordinator for jobs, runs them locally (WebGPU via web-llm), and posts
-// results back. All state is mirrored to chrome.storage so the popup can render it.
+// The lite node's engine + work loop. Settings/runtime state live in the
+// background service worker (chrome.storage is not available inside this
+// offscreen document on every Chrome build — only chrome.runtime is injected
+// here), so everything goes through chrome.runtime messaging instead.
 
-// The shared, always-on Joule network — joined by default with zero setup.
-const DEFAULT_COORDINATOR_URL = "https://joule-coordinator.onrender.com";
+console.log("Joule diag:", JSON.stringify({
+  hasChrome: typeof chrome !== "undefined",
+  chromeKeys: typeof chrome !== "undefined" ? Object.keys(chrome) : null,
+  hasRuntime: typeof chrome !== "undefined" && !!chrome.runtime,
+  runtimeId: typeof chrome !== "undefined" && chrome.runtime ? chrome.runtime.id : null,
+  hasStorage: typeof chrome !== "undefined" && !!chrome.storage,
+  storageKeys: typeof chrome !== "undefined" && chrome.storage ? Object.keys(chrome.storage) : null,
+  hasGpu: typeof navigator !== "undefined" && !!navigator.gpu,
+  origin: typeof location !== "undefined" ? location.href : null,
+}));
+
 const PRICE_PER_SEC = 0.0001; // lite-node rate (USDC/sec) — small models, small price
 const DEFAULT_MODEL = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 const POLL_MS = 2500;
@@ -20,17 +30,13 @@ let registered = false;
 const state = { status: "offline", modelPct: 0, modelText: "", jobsDone: 0, earned: 0, engineMode: "none", lastJob: "" };
 async function pushState(patch = {}) {
   Object.assign(state, patch);
-  await chrome.storage.local.set({ runtime: state });
+  await chrome.runtime.sendMessage({ cmd: "pushState", patch: state });
 }
 
 async function settings() {
-  const s = await chrome.storage.local.get(["coordinatorUrl", "payout", "model", "online", "workerId"]);
-  if (!s.workerId) {
-    s.workerId = "lite-" + Math.random().toString(36).slice(2, 10);
-    await chrome.storage.local.set({ workerId: s.workerId });
-  }
+  const s = await chrome.runtime.sendMessage({ cmd: "getSettings" });
   return {
-    coordinatorUrl: (s.coordinatorUrl || DEFAULT_COORDINATOR_URL).replace(/\/$/, ""),
+    coordinatorUrl: (s.coordinatorUrl || "https://joule-coordinator.onrender.com").replace(/\/$/, ""),
     payout: s.payout || "",
     model: s.model || DEFAULT_MODEL,
     online: !!s.online,
@@ -179,13 +185,14 @@ function stop() {
   pushState({ status: "offline" });
 }
 
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes.online) return;
-  changes.online.newValue ? start() : stop();
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.cmd !== "onlineChanged") return;
+  msg.online ? start() : stop();
 });
 
-(async () => {
+async function init() {
   const s = await settings();
   await pushState({ engineMode: "none", status: s.online ? "starting…" : "offline" });
   if (s.online) start();
-})();
+}
+init().catch((err) => console.error("Joule offscreen init failed:", err));

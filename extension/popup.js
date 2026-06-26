@@ -1,6 +1,7 @@
-// Popup: thin UI over chrome.storage. Settings + the online toggle are written to
-// storage; the offscreen worker reacts to them. Runtime stats are read back from
-// storage and rendered live.
+// Popup: thin UI over the background service worker's settings/runtime API.
+// Settings + the online toggle go through chrome.runtime messages (not
+// chrome.storage directly), so the background worker is the single source of
+// truth and can notify the offscreen worker via "onlineChanged".
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_COORDINATOR_URL = "https://joule-coordinator.onrender.com";
@@ -8,7 +9,7 @@ const DEFAULT_COORDINATOR_URL = "https://joule-coordinator.onrender.com";
 chrome.runtime.sendMessage({ cmd: "ensureOffscreen" }); // make sure the worker page exists
 
 async function loadSettings() {
-  const s = await chrome.storage.local.get(["coordinatorUrl", "payout", "model", "online"]);
+  const s = await chrome.runtime.sendMessage({ cmd: "getSettings" });
   $("coord").value = s.coordinatorUrl || DEFAULT_COORDINATOR_URL;
   $("payout").value = s.payout || "";
   if (s.model) $("model").value = s.model;
@@ -37,27 +38,30 @@ function render(rt) {
 
 // Persist settings as they change.
 for (const [id, key] of [["coord", "coordinatorUrl"], ["payout", "payout"], ["model", "model"]]) {
-  $(id).addEventListener("change", () => chrome.storage.local.set({ [key]: $(id).value.trim() }));
+  $(id).addEventListener("change", () => chrome.runtime.sendMessage({ cmd: "setSettings", patch: { [key]: $(id).value.trim() } }));
 }
 
 $("toggle").addEventListener("click", async () => {
   const on = !$("toggle").dataset.on;
   // make sure latest settings are saved before flipping online
-  await chrome.storage.local.set({
-    coordinatorUrl: $("coord").value.trim(),
-    payout: $("payout").value.trim(),
-    model: $("model").value,
-    online: on,
+  await chrome.runtime.sendMessage({
+    cmd: "setSettings",
+    patch: {
+      coordinatorUrl: $("coord").value.trim(),
+      payout: $("payout").value.trim(),
+      model: $("model").value,
+      online: on,
+    },
   });
   setToggle(on);
 });
 
-chrome.storage.onChanged.addListener((c, area) => {
-  if (area === "local" && c.runtime) render(c.runtime.newValue);
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.cmd === "runtimeUpdate") render(msg.runtime);
 });
 
 (async () => {
   await loadSettings();
-  const { runtime } = await chrome.storage.local.get("runtime");
+  const runtime = await chrome.runtime.sendMessage({ cmd: "getRuntime" });
   render(runtime);
 })();
