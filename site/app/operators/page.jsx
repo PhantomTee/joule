@@ -15,13 +15,50 @@ export default function Operators() {
           inference to agents — you keep what you meter, and you can stop any time.
         </p>
         <div className="cta">
-          <a className="btn" href="https://github.com/PhantomTee/joule/releases/latest">
-            Download the node ↓
+          <a className="btn" href="https://github.com/PhantomTee/joule/releases/latest/download/joule-lite-extension.zip">
+            Get the Chrome extension ↓
+          </a>
+          <a className="ghost" href="https://github.com/PhantomTee/joule/releases/latest">
+            Or the native node ↓
           </a>
         </div>
       </section>
 
-      <h2>Three steps</h2>
+      <h2>The fast way: a Chrome extension</h2>
+      <p className="body">
+        No install, no Ollama, no terminal. Joule lite runs the model right in your browser over WebGPU and earns
+        USDC per second whenever a buyer&apos;s job is routed to you — close the tab and it just stops.
+      </p>
+      <div className="grid3">
+        <div className="card">
+          <div className="n">01</div>
+          <h3>Download + unzip</h3>
+          <p>
+            Grab <code>joule-lite-extension.zip</code> above and unzip it anywhere.
+          </p>
+        </div>
+        <div className="card">
+          <div className="n">02</div>
+          <h3>Load it in Chrome</h3>
+          <p>
+            Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, click <b>Load unpacked</b>, and pick
+            the unzipped folder.
+          </p>
+        </div>
+        <div className="card">
+          <div className="n">03</div>
+          <h3>Connect a wallet + start</h3>
+          <p>
+            Click the Joule icon, paste your Arc payout address, hit <b>Start</b>. It joins the network and earns per
+            second whenever its model answers a real inference job — paid straight to that address, no custody.
+          </p>
+        </div>
+      </div>
+
+      <h2 style={{ marginTop: 46 }}>The heavier way: a native node</h2>
+      <p className="body">
+        More power (any Ollama model, not just what fits in a browser tab), at the cost of an actual install.
+      </p>
       <div className="grid3">
         <div className="card">
           <div className="n">01</div>
