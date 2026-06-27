@@ -58,6 +58,9 @@ $("toggle").addEventListener("click", async () => {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.cmd === "runtimeUpdate") render(msg.runtime);
+  // Keeps the toggle honest if settings change from elsewhere — e.g. the
+  // offscreen worker flipping itself back offline because no real model loaded.
+  if (msg?.cmd === "settingsUpdate") setToggle(!!msg.settings?.online);
 });
 
 (async () => {

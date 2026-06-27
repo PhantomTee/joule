@@ -62,6 +62,9 @@ async function setSettings(patch) {
   if ("online" in patch && !!patch.online !== !!prev.online) {
     chrome.runtime.sendMessage({ cmd: "onlineChanged", online: !!patch.online }).catch(() => {});
   }
+  // Lets the popup stay in sync even when settings change from elsewhere (e.g.
+  // the offscreen worker flipping itself back offline because no real model loaded).
+  chrome.runtime.sendMessage({ cmd: "settingsUpdate", settings: settingsCache }).catch(() => {});
   return settingsCache;
 }
 
