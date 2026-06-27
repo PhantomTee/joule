@@ -20,12 +20,13 @@ const POLL_MS = 2500;
 const HEARTBEAT_MS = 25000;
 
 let engine = null;
-let engineMode = "none"; // "webgpu" | "stub"
+let engineMode = "none"; // "webgpu" | "blocked" — "blocked" means no real model, never claims jobs
 let loadingModel = false;
 let busy = false;
 let pollTimer = null;
 let beatTimer = null;
 let registered = false;
+let selfCorrecting = false; // true while start() is flipping online back off itself
 
 const state = { status: "offline", modelPct: 0, modelText: "", jobsDone: 0, earned: 0, engineMode: "none", lastJob: "" };
 async function pushState(patch = {}) {
@@ -57,11 +58,12 @@ async function loadEngine(model) {
     });
     engineMode = "webgpu";
   } catch (err) {
-    // No bundled model (or no WebGPU): fall back to a clearly-labeled stub so the
-    // pull→run→result loop is still demonstrable. Build the model for real inference.
+    // No bundled model (or no WebGPU): refuse to serve. A node must never bill a
+    // buyer for a placeholder answer — see `start()`, which won't go online unless
+    // engineMode === "webgpu".
     engine = null;
-    engineMode = "stub";
-    await pushState({ modelText: `stub mode (${err.message})` });
+    engineMode = "blocked";
+    await pushState({ modelText: `model failed to load: ${err.message}` });
   } finally {
     loadingModel = false;
     await pushState({ engineMode });
@@ -70,19 +72,12 @@ async function loadEngine(model) {
 
 async function infer(prompt, maxTokens) {
   const started = performance.now();
-  let output;
-  if (engineMode === "webgpu" && engine) {
-    const reply = await engine.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    });
-    output = reply.choices?.[0]?.message?.content ?? "";
-  } else {
-    // Stub: proves the loop without a model. Replace by building web-llm.
-    await new Promise((r) => setTimeout(r, 600));
-    output = `[stub answer] You asked: "${prompt.slice(0, 120)}". Build the WebGPU model for real inference.`;
-  }
+  const reply = await engine.chat.completions.create({
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: maxTokens,
+    temperature: 0.7,
+  });
+  const output = reply.choices?.[0]?.message?.content ?? "";
   const seconds = Math.max(1, Math.round((performance.now() - started) / 1000));
   return { output, seconds };
 }
@@ -97,7 +92,7 @@ async function register(s) {
         id: s.workerId,
         name: "Browser lite node",
         url: null,
-        model: engineMode === "webgpu" ? s.model : `${s.model} (stub)`,
+        model: s.model,
         pricePerSecond: PRICE_PER_SEC,
         sellerAddress: s.payout || null,
         kind: "lite",
@@ -132,8 +127,9 @@ async function poll() {
   if (busy) return;
   const s = await settings();
   if (!s.online) return;
+  // engineMode is guaranteed "webgpu" here — start() refuses to begin polling
+  // otherwise, so a job is never claimed (and never billed) without a real model.
   if (!registered) await register(s);
-  if (!engine && engineMode === "none") await loadEngine(s.model);
 
   let job;
   try {
@@ -143,7 +139,7 @@ async function poll() {
     return;
   }
   if (!job || job.none) {
-    await pushState({ status: engineMode === "webgpu" ? "online · waiting for work" : "online (stub) · waiting" });
+    await pushState({ status: "online · waiting for work" });
     return;
   }
 
@@ -168,9 +164,18 @@ async function poll() {
 // --- lifecycle -------------------------------------------------------------
 async function start() {
   const s = await settings();
+  await pushState({ status: "loading model…" });
+  await loadEngine(s.model);
+  if (engineMode !== "webgpu") {
+    // No real model available: refuse to register or claim jobs, and flip the
+    // toggle back off so the popup reflects that the node isn't actually online.
+    await pushState({ status: "blocked: no real model loaded — run `npm run build` in /extension, see README" });
+    selfCorrecting = true;
+    await chrome.runtime.sendMessage({ cmd: "setSettings", patch: { online: false } });
+    return;
+  }
   await register(s);
   await syncEarnings(s); // pick up this node's real on-chain-settled total, if any
-  loadEngine(s.model); // lazy; doesn't block polling
   clearInterval(pollTimer);
   clearInterval(beatTimer);
   pollTimer = setInterval(poll, POLL_MS);
@@ -187,6 +192,12 @@ function stop() {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.cmd !== "onlineChanged") return;
+  if (selfCorrecting) {
+    // We're the ones who just turned ourselves off (blocked, no real model) —
+    // already reflected in state.status; don't let stop() clobber that message.
+    selfCorrecting = false;
+    return;
+  }
   msg.online ? start() : stop();
 });
 

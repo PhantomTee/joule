@@ -29,7 +29,7 @@ function render(rt) {
   $("earned").textContent = Number(rt.earned || 0).toFixed(6);
   $("status").textContent = rt.status || "offline";
   $("jobs").textContent = rt.jobsDone || 0;
-  $("engine").textContent = rt.engineMode === "webgpu" ? "WebGPU" : rt.engineMode === "stub" ? "stub" : "—";
+  $("engine").textContent = rt.engineMode === "webgpu" ? "WebGPU" : rt.engineMode === "blocked" ? "blocked (no model)" : "—";
   const loading = (rt.status || "").includes("loading") || (rt.modelPct > 0 && rt.modelPct < 100);
   $("barWrap").hidden = !loading;
   $("barfill").style.width = (rt.modelPct || 0) + "%";

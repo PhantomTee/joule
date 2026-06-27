@@ -51,17 +51,19 @@ To test the loop without installing the extension, `node scripts/sim-lite-worker
 stands in for a browser worker (claim → deliver) so you can drive `buy-lite` end to
 end from the CLI.
 
-## Real WebGPU inference (optional build step)
+## Real WebGPU inference (required build step)
 
 MV3 forbids loading remote scripts, so the model engine must be bundled locally.
-Until you build it, the node runs in a **clearly-labeled stub mode** so the whole
-loop (claim → run → result → earn) works end-to-end.
+**The extension refuses to go online without it** — it will never claim a job and
+bill a buyer for a placeholder answer. If `vendor/web-llm.js` is missing or WebGPU
+isn't available, the popup shows "blocked: no real model loaded" and the toggle
+flips itself back off.
 
 ```bash
 cd extension
 npm install        # @mlc-ai/web-llm + esbuild
 npm run build      # writes vendor/web-llm.js
-# reload the extension → it now downloads a small model on first job and runs real WebGPU inference
+# reload the extension → it downloads a small model on first "Go online" and runs real WebGPU inference
 ```
 
 ## Honest scope
