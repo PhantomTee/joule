@@ -27,6 +27,7 @@ let pollTimer = null;
 let beatTimer = null;
 let registered = false;
 let selfCorrecting = false; // true while start() is flipping online back off itself
+let blockedReason = null; // "no-webgpu" | "no-bundle" | "load-failed" — set when engineMode !== "webgpu"
 
 const state = { status: "offline", modelPct: 0, modelText: "", jobsDone: 0, earned: 0, engineMode: "none", lastJob: "" };
 async function pushState(patch = {}) {
@@ -50,19 +51,30 @@ async function loadEngine(model) {
   if (engine || loadingModel) return;
   loadingModel = true;
   try {
-    const webllm = await import("./vendor/web-llm.js"); // produced by `npm run build` in /extension
-    if (!navigator.gpu) throw new Error("WebGPU not available in this browser");
+    if (!navigator.gpu) {
+      const err = new Error("WebGPU not available in this browser/device");
+      err.kind = "no-webgpu";
+      throw err;
+    }
+    let webllm;
+    try {
+      webllm = await import("./vendor/web-llm.js"); // produced by `npm run build` in /extension
+    } catch (importErr) {
+      const err = new Error("model bundle missing (vendor/web-llm.js not built)");
+      err.kind = "no-bundle";
+      throw err;
+    }
     await pushState({ status: "loading model", modelText: "starting…" });
     engine = await webllm.CreateMLCEngine(model, {
       initProgressCallback: (p) => pushState({ modelPct: Math.round((p.progress || 0) * 100), modelText: p.text || "" }),
     });
     engineMode = "webgpu";
   } catch (err) {
-    // No bundled model (or no WebGPU): refuse to serve. A node must never bill a
-    // buyer for a placeholder answer — see `start()`, which won't go online unless
-    // engineMode === "webgpu".
+    // Refuse to serve: a node must never bill a buyer for a placeholder answer —
+    // see `start()`, which won't go online unless engineMode === "webgpu".
     engine = null;
     engineMode = "blocked";
+    blockedReason = err.kind || "load-failed";
     await pushState({ modelText: `model failed to load: ${err.message}` });
   } finally {
     loadingModel = false;
@@ -169,7 +181,16 @@ async function start() {
   if (engineMode !== "webgpu") {
     // No real model available: refuse to register or claim jobs, and flip the
     // toggle back off so the popup reflects that the node isn't actually online.
-    await pushState({ status: "blocked: no real model loaded — run `npm run build` in /extension, see README" });
+    // The advice differs by cause — a missing bundle is a build problem (the
+    // public release zip already ships it built; this only hits a from-source
+    // checkout), but unsupported WebGPU is a browser/hardware limit that no
+    // amount of npm can fix.
+    const blockedMessages = {
+      "no-webgpu": "blocked: this browser/device doesn't support WebGPU — try a different browser or device",
+      "no-bundle": "blocked: model bundle missing — run `npm run build` in /extension, see README",
+      "load-failed": "blocked: model failed to load — check your connection and try again",
+    };
+    await pushState({ status: blockedMessages[blockedReason] || blockedMessages["load-failed"] });
     selfCorrecting = true;
     await chrome.runtime.sendMessage({ cmd: "setSettings", patch: { online: false } });
     return;
