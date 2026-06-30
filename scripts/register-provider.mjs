@@ -18,7 +18,7 @@ try {
   const env = await readFile(resolve(root, ".env"), "utf8");
   for (const line of env.split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (m) process.env[m[1]] ??= m[2].replace(/^['"]|['"]$/g, "");
+    if (m) process.env[m[1]] ??= m[2].replace(/^['"]|['"]$/g, "").trim();
   }
 } catch {}
 
