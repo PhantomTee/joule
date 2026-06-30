@@ -3,7 +3,16 @@
 // streaming tokens and running spend back through callbacks. Stops cleanly when
 // shouldStop() returns true (tap-to-stop) — the provider then frees the model.
 
+import { appendFile, mkdir } from "node:fs/promises";
 import { config } from "./config.js";
+import { verifyAttestation, parseAttestationHeader } from "./attestation.js";
+
+// Append-only log of every attestation result (verified or not)
+const VERIF_LOG = "./data/verifications.jsonl";
+async function logVerification(entry) {
+  await mkdir("./data", { recursive: true }).catch(() => {});
+  await appendFile(VERIF_LOG, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n", "utf8").catch(() => {});
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const bodyOf = (res) => res?.data ?? res?.body ?? res?.response ?? res;
@@ -28,9 +37,18 @@ export async function makeGateway() {
  * @param {()=>boolean} [p.shouldStop]
  * @returns {Promise<{spent:number, seconds:number, stopped?:boolean, done?:boolean, error?:string}>}
  */
-export async function runSession({ gateway, baseUrl, prompt, onToken, onTick, onStatus, shouldStop }) {
+export async function runSession({ gateway, baseUrl, prompt, onToken, onTick, onStatus, shouldStop, providerAddress }) {
   let spent = 0;
   let seconds = 0;
+  let fullOutput = "";
+
+  // Discover provider address from agent card if not explicitly given (for attestation)
+  if (!providerAddress) {
+    try {
+      const card = await fetch(`${baseUrl}/agent-card`, { signal: AbortSignal.timeout(3000) }).then((r) => r.json());
+      providerAddress = card?.provider?.wallet;
+    } catch {}
+  }
 
   onStatus?.({ phase: "opening", spent });
   const openRes = await gateway.pay(`${baseUrl}/v1/sessions`, {
@@ -43,7 +61,7 @@ export async function runSession({ gateway, baseUrl, prompt, onToken, onTick, on
   seconds = open.state?.seconds ?? 0;
 
   onStatus?.({ phase: "streaming", sessionId, spent, seconds });
-  if (open.tokens) onToken?.(open.tokens, spent);
+  if (open.tokens) { fullOutput += open.tokens; onToken?.(open.tokens, spent); }
 
   let done = !!open.done;
   while (!done) {
@@ -65,12 +83,24 @@ export async function runSession({ gateway, baseUrl, prompt, onToken, onTick, on
     const pull = bodyOf(pullRes);
     spent += amountOf(pullRes);
     seconds = pull.state?.seconds ?? seconds + config.tickSeconds;
-    if (pull.tokens) onToken?.(pull.tokens, spent);
+    if (pull.tokens) { fullOutput += pull.tokens; onToken?.(pull.tokens, spent); }
     onTick?.({ spent, seconds });
     done = !!pull.done;
+
+    // On the final pull, verify the attestation header
+    if (done && providerAddress) {
+      const rawHeader = pullRes?.headers?.get?.("x-inference-attestation")
+        ?? pullRes?.response?.headers?.get?.("x-inference-attestation");
+      const attestation = parseAttestationHeader(rawHeader);
+      const result = await verifyAttestation(attestation, prompt, fullOutput, providerAddress)
+        .catch((err) => ({ ok: false, reason: err.message }));
+      await logVerification({ sessionId, providerAddress, ...result, attestation: attestation ?? null });
+      onStatus?.({ phase: "attestation", ...result });
+    }
+
     if (!done) await sleep(config.tickSeconds * 1000);
   }
 
   onStatus?.({ phase: "done", spent, seconds });
-  return { spent, seconds, done: true, sessionId };
+  return { spent, seconds, done: true, sessionId, fullOutput };
 }

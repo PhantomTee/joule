@@ -20,6 +20,7 @@ import { TRY_HTML } from "./try-page.js";
 import { PricingAgent } from "./pricing.js";
 import { streamChat } from "./inference.js";
 import { listProviders, getProvider } from "./registry.js";
+import { createAttestation, encodeAttestationHeader } from "./attestation.js";
 
 // Free "try it, no wallet" demo — capped + lightly rate-limited so it can't be abused.
 let demoInFlight = 0;
@@ -276,7 +277,17 @@ export function createServer({ idleMonitor } = {}) {
 
       if (action === "stop") {
         session.stop("buyer_stopped");
-        return send(res, 200, { stopped: true, state: session.publicState() });
+        // Attest the accumulated output at tap-to-stop (best-effort, non-blocking)
+        const stopAttestation = await createAttestation({
+          model:     session.model,
+          prompt:    session._prompt || "",
+          output:    session.fullOutput,
+          sessionId: session.id,
+        }).catch(() => null);
+        const extraHeaders = stopAttestation
+          ? { "x-inference-attestation": encodeAttestationHeader(stopAttestation) }
+          : {};
+        return send(res, 200, { stopped: true, state: session.publicState() }, extraHeaders);
       }
 
       // pull — pay for the SECONDS of generation since the last pull (so a buyer
@@ -308,12 +319,24 @@ export function createServer({ idleMonitor } = {}) {
       const done = session.isComplete() || session.status !== "streaming";
       if (done && session.isComplete()) sessions.remove(id);
 
+      // On the final pull, sign the complete output so the buyer can verify it.
+      let attestationHeader = {};
+      if (done) {
+        const att = await createAttestation({
+          model:     session.model,
+          prompt:    session._prompt || "",
+          output:    session.fullOutput,
+          sessionId: id,
+        }).catch(() => null);
+        if (att) attestationHeader = { "x-inference-attestation": encodeAttestationHeader(att) };
+      }
+
       return send(res, 200, {
         tokens,
         done,
         receipt: { transaction: settled.result.transaction, amountUsdc: settled.result.amountAtomic / 1e6 },
         state: session.publicState(),
-      });
+      }, attestationHeader);
     }
 
     // ── Provider discovery API (Phase 2) ─────────────────────────────────────

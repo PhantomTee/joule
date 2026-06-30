@@ -35,6 +35,10 @@ class Session {
     this.pendingQuoteAtomic = null; // frozen price for the in-flight pull
     this.abort = new AbortController();
     this._drainResolve = null; // resolves when a paid pull drains the buffer
+    this.fullOutput = ""; // accumulated for attestation signing
+    // Extract the first user message as the "prompt" for attestation
+    const msgs = body?.messages ?? [];
+    this._prompt = msgs.filter((m) => m.role === "user").map((m) => m.content).join("\n");
 
     // Kick off generation server-side; tokens accrue into the buffer as they stream.
     this._run(body);
@@ -72,6 +76,7 @@ class Session {
   // the backpressure gate so the model may generate the next interval.
   drainBuffer() {
     const text = this.buffer.join("");
+    this.fullOutput += text; // accumulate for attestation
     this.buffer = [];
     this._releaseGate();
     return text;
