@@ -92,15 +92,37 @@ export function createServer({ idleMonitor } = {}) {
   const sessions = new SessionManager();
   const pricing = new PricingAgent();
 
+  // GPU stats cached for 10s so every quote doesn't shell out to nvidia-smi.
+  let _gpuCache = null;
+  let _gpuCacheAt = 0;
+  async function cachedGpu() {
+    if (Date.now() - _gpuCacheAt < 10_000 && _gpuCache !== undefined) return _gpuCache;
+    _gpuCache = await sysmon.gpuStats().catch(() => null);
+    _gpuCacheAt = Date.now();
+    return _gpuCache;
+  }
+
   // Live demand state the pricing agent reasons over.
-  const demandState = () => ({
+  const demandState = async () => ({
     activeSessions: sessions.sessions.size,
     idleSeconds: idleMonitor?.seconds ?? 0,
+    gpu: await cachedGpu(),
+    model: config.model,
   });
-  const liveQuote = () => pricing.quote(demandState());
+  const liveQuote = async () => {
+    const state = await demandState();
+    pricing.record(state.activeSessions); // feed trend history
+    return pricing.quote(state);
+  };
 
-  function agentCard() {
-    const q = liveQuote();
+  // Record demand every 5 s so trend detection has data even between requests.
+  const demandTick = setInterval(async () => {
+    pricing.record(sessions.sessions.size);
+  }, 5000);
+  demandTick.unref?.();
+
+  async function agentCard() {
+    const q = await liveQuote();
     return {
       protocolVersion: "0.2",
       name: "Joule node",
@@ -112,7 +134,7 @@ export function createServer({ idleMonitor } = {}) {
       skills: [
         { id: "inference", name: "streaming chat completion", tags: ["llm", "inference", "pay-per-second"] },
       ],
-      capabilities: { streaming: true, payPerSecond: true, tapToStop: true, dynamicPricing: true },
+      capabilities: { streaming: true, payPerSecond: true, tapToStop: true, dynamicPricing: true, attestation: true },
       payment: {
         scheme: "x402",
         asset: config.arc.usdc,
@@ -121,6 +143,7 @@ export function createServer({ idleMonitor } = {}) {
         baseUsdc: q.base,
         multiplier: q.multiplier,
         reason: q.reason,
+        breakdown: q.breakdown,
       },
       endpoints: {
         open: "/v1/sessions",
@@ -136,7 +159,7 @@ export function createServer({ idleMonitor } = {}) {
 
     // --- A2A discovery: the provider's agent card with its live price ---
     if (req.method === "GET" && (path === "/agent-card" || path === "/.well-known/agent-card.json")) {
-      return send(res, 200, agentCard());
+      return send(res, 200, await agentCard());
     }
 
     // --- dashboard (free) ---
@@ -207,13 +230,13 @@ export function createServer({ idleMonitor } = {}) {
         gpu: snap.gpu,
         model: config.model,
         inferenceBase: config.inferenceBase,
-        pricePerSecond: liveQuote().price,
+        pricePerSecond: (await liveQuote()).price,
         paymentMode: "circle",
       });
     }
     if (req.method === "GET" && path === "/stats") {
       const [summary, snap] = await Promise.all([earnings.summary(), sysmon.snapshot()]);
-      const q = liveQuote();
+      const q = await liveQuote();
       return send(res, 200, {
         earnings: summary,
         system: snap,
@@ -235,7 +258,7 @@ export function createServer({ idleMonitor } = {}) {
       }
       const endpoint = "/v1/sessions";
       // The pricing agent sets the per-second price for this session, by demand.
-      const quote = liveQuote();
+      const quote = await liveQuote();
       const openAtomic = Math.max(usdcToAtomic(quote.price * config.tickSeconds), floorAtomic());
       const settled = await settleAmount(req, res, endpoint, openAtomic);
       if (!settled.ok) return;
@@ -252,18 +275,24 @@ export function createServer({ idleMonitor } = {}) {
         pricePerSecondUsdc: quote.price,
       });
       await earnings.record({
-        sessionId: session.id,
-        model: config.model,
-        payer: settled.result.payer,
-        seconds: config.tickSeconds,
-        amountAtomic: settled.result.amountAtomic,
-        gatewayTx: settled.result.transaction,
+        sessionId:         session.id,
+        model:             config.model,
+        payer:             settled.result.payer,
+        seconds:           config.tickSeconds,
+        amountAtomic:      settled.result.amountAtomic,
+        gatewayTx:         settled.result.transaction,
+        priceMultiplier:   quote.multiplier,
+        pricingReason:     quote.reason,
       });
 
       return send(res, 200, {
         sessionId: session.id,
         tokens: session.drainBuffer(),
-        receipt: { transaction: settled.result.transaction, amountUsdc: settled.result.amountAtomic / 1e6 },
+        receipt: {
+          transaction: settled.result.transaction,
+          amountUsdc:  settled.result.amountAtomic / 1e6,
+          priceBreakdown: quote.breakdown,
+        },
         state: session.publicState(),
       });
     }
@@ -423,6 +452,6 @@ export function createServer({ idleMonitor } = {}) {
     });
   });
 
-  server.on("close", () => sessions.shutdown());
+  server.on("close", () => { sessions.shutdown(); clearInterval(demandTick); });
   return { server, sessions, earnings };
 }
