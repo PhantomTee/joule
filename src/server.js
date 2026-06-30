@@ -19,6 +19,7 @@ import { NODE_CONSOLE_HTML } from "./node-console.js";
 import { TRY_HTML } from "./try-page.js";
 import { PricingAgent } from "./pricing.js";
 import { streamChat } from "./inference.js";
+import { listProviders, getProvider } from "./registry.js";
 
 // Free "try it, no wallet" demo — capped + lightly rate-limited so it can't be abused.
 let demoInFlight = 0;
@@ -313,6 +314,80 @@ export function createServer({ idleMonitor } = {}) {
         receipt: { transaction: settled.result.transaction, amountUsdc: settled.result.amountAtomic / 1e6 },
         state: session.publicState(),
       });
+    }
+
+    // ── Provider discovery API (Phase 2) ─────────────────────────────────────
+    // These endpoints work with or without an on-chain registry — they fall back
+    // to the coordinator's live node list when REGISTRY_ADDRESS is not set.
+
+    if (req.method === "GET" && path === "/api/providers") {
+      const sortBy = url.searchParams.get("sortBy") || "earnings";
+      const limit  = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 100);
+      try {
+        if (process.env.REGISTRY_ADDRESS) {
+          const providers = await listProviders({ sortBy, limit });
+          return send(res, 200, { providers, source: "onchain" });
+        }
+        // Fall back: proxy the coordinator's /nodes list
+        const coord = process.env.COORDINATOR_URL || config.defaultCoordinatorUrl;
+        const data  = await fetch(`${coord}/nodes`, { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
+        return send(res, 200, { providers: data.nodes || [], source: "coordinator" });
+      } catch (err) {
+        return send(res, 503, { error: "discovery_unavailable", message: err.message });
+      }
+    }
+
+    if (req.method === "GET" && path.startsWith("/api/providers/")) {
+      const seg = path.slice("/api/providers/".length);
+      if (!seg || isNaN(Number(seg))) return send(res, 400, { error: "invalid provider id" });
+      try {
+        if (!process.env.REGISTRY_ADDRESS) return send(res, 503, { error: "REGISTRY_ADDRESS not set" });
+        const provider = await getProvider(Number(seg));
+        if (!provider) return send(res, 404, { error: "not_found" });
+        return send(res, 200, { provider });
+      } catch (err) {
+        return send(res, 500, { error: "registry_error", message: err.message });
+      }
+    }
+
+    if (req.method === "GET" && path === "/api/market-stats") {
+      try {
+        const [summary, snap] = await Promise.all([earnings.summary(), sysmon.snapshot()]);
+        const coord = process.env.COORDINATOR_URL || config.defaultCoordinatorUrl;
+        let networkStats = { totalProviders: 0, avgPrice: 0 };
+        try {
+          const d = await fetch(`${coord}/nodes`, { signal: AbortSignal.timeout(3000) }).then((r) => r.json());
+          const nodes = d.nodes || [];
+          const prices = nodes.map((n) => n.pricePerSecond).filter(Boolean);
+          networkStats = {
+            totalProviders: nodes.length,
+            avgPrice: prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0,
+            totalEarnings: nodes.reduce((s, n) => s + Number(n.earnedUsdc || 0), 0),
+          };
+        } catch {}
+        return send(res, 200, {
+          thisNode:     summary,
+          system:       snap,
+          network:      networkStats,
+          onchain:      !!process.env.REGISTRY_ADDRESS,
+        });
+      } catch (err) {
+        return send(res, 500, { error: "stats_error", message: err.message });
+      }
+    }
+    // ── /api/providers search ────────────────────────────────────────────────
+    if (req.method === "GET" && path === "/api/providers/search") {
+      const q = (url.searchParams.get("q") || "").toLowerCase();
+      try {
+        const coord = process.env.COORDINATOR_URL || config.defaultCoordinatorUrl;
+        const data  = await fetch(`${coord}/nodes`, { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
+        const nodes = (data.nodes || []).filter((n) =>
+          !q || (n.model || "").toLowerCase().includes(q) || (n.name || "").toLowerCase().includes(q)
+        );
+        return send(res, 200, { providers: nodes });
+      } catch (err) {
+        return send(res, 503, { error: "search_unavailable", message: err.message });
+      }
     }
 
     send(res, 404, { error: "not_found" });

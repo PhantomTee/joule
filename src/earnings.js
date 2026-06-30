@@ -4,6 +4,7 @@
 import { appendFile, readFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config, atomicToUsdc } from "./config.js";
+import { accumulateSession } from "./registry-reporter.js";
 
 export class Earnings {
   constructor(file = config.earningsFile) {
@@ -25,6 +26,8 @@ export class Earnings {
     };
     await mkdir(dirname(this.file), { recursive: true });
     await appendFile(this.file, JSON.stringify(row) + "\n", "utf8");
+    // Feed into on-chain hourly reporter (no-op if REGISTRY_ADDRESS not set)
+    accumulateSession({ seconds: row.seconds, amountUsdc: row.amountUsdc });
     return row;
   }
 

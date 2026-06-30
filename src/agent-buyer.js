@@ -22,14 +22,34 @@ const budget = Number(arg("budget", "0.005"));
 const maxPrice = Number(arg("max-price", "0.0005")); // most the agent will pay per second
 const deposit = arg("deposit", "1");
 
-// Provider URLs this agent knows about. It discovers each one's live price via its
-// A2A agent card, then decides which (if any) to deal with.
-const knownUrls = (process.env.PROVIDERS ?? process.env.BASE_URL ?? `http://localhost:${config.port}`)
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+const log = (s) => console.log(`\x1b[2m[agent]\x1b[0m ${s}`);
 
-async function discover(urlBase) {
+// ── Provider discovery ────────────────────────────────────────────────────────
+// Priority order:
+//   1. On-chain registry via /api/providers (if COORDINATOR_URL points to a Joule node)
+//   2. Coordinator /nodes list (fast, always fresh)
+//   3. Explicit PROVIDERS env var or BASE_URL (legacy / solo-node mode)
+
+async function discoverFromRegistry(coordUrl) {
+  try {
+    const data = await fetch(`${coordUrl}/nodes`, { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
+    return (data.nodes || [])
+      .filter((n) => n.url && n.pricePerSecond != null)
+      .map((n) => ({
+        name:   n.name || "node",
+        url:    n.url,
+        rate:   n.pricePerSecond,
+        reason: n.activeSessions > 0 ? `${n.activeSessions} session(s) in flight` : "open",
+        model:  n.model,
+        score:  (1 / (n.pricePerSecond || 1)),  // cheapest = highest score by default
+      }))
+      .sort((a, b) => b.score - a.score);
+  } catch {
+    return [];
+  }
+}
+
+async function discoverFromCard(urlBase) {
   try {
     const card = await fetch(`${urlBase}/agent-card`, { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
     return { name: card.name, url: urlBase, rate: card.payment.perSecondUsdc, reason: card.payment.reason, model: card.model };
@@ -38,7 +58,11 @@ async function discover(urlBase) {
   }
 }
 
-const log = (s) => console.log(`\x1b[2m[agent]\x1b[0m ${s}`);
+const coordUrl = process.env.COORDINATOR_URL || config.defaultCoordinatorUrl;
+const knownUrls = (process.env.PROVIDERS ?? process.env.BASE_URL ?? `http://localhost:${config.port}`)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 // Judge the answer-so-far with the local model (free, not through the paywall).
 async function judge(question, answer) {
@@ -68,7 +92,14 @@ async function judge(question, answer) {
 log(`goal: "${goal}"`);
 log(`budget: ${budget.toFixed(6)} USDC  ·  won't pay more than ${maxPrice}/sec`);
 
-const cards = (await Promise.all(knownUrls.map(discover))).filter(Boolean);
+// Try coordinator-based discovery first (dynamic, ranks by price); fall back to explicit URLs
+let cards = await discoverFromRegistry(coordUrl);
+if (!cards.length) {
+  log(`coordinator at ${coordUrl} returned no nodes — falling back to explicit URLs`);
+  cards = (await Promise.all(knownUrls.map(discoverFromCard))).filter(Boolean);
+} else {
+  log(`discovered ${cards.length} node(s) from coordinator`);
+}
 if (!cards.length) {
   log("no providers reachable — not buying.");
   process.exit(0);

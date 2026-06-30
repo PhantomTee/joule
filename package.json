@@ -19,7 +19,10 @@
     "withdraw": "node --env-file-if-exists=.env scripts/withdraw-seller.mjs",
     "test": "node --test",
     "lite:ask": "node --env-file-if-exists=.env scripts/lite-buyer.mjs",
-    "buy-lite": "node --env-file-if-exists=.env scripts/buy-lite.mjs"
+    "buy-lite": "node --env-file-if-exists=.env scripts/buy-lite.mjs",
+    "contracts:compile": "npx hardhat --config hardhat.config.cjs compile",
+    "contracts:deploy": "node scripts/deploy-registry.mjs",
+    "provider:register": "node scripts/register-provider.mjs"
   },
   "keywords": [
     "x402",
@@ -39,7 +42,9 @@
     "viem": "^2.47.1"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-viem": "^3.0.9",
     "esbuild": "^0.28.1",
+    "hardhat": "^3.9.0",
     "postject": "^1.0.0-alpha.6"
   }
 }

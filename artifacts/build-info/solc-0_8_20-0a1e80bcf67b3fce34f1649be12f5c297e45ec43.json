@@ -1,0 +1,46 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_20-0a1e80bcf67b3fce34f1649be12f5c297e45ec43",
+  "solcVersion": "0.8.20",
+  "solcLongVersion": "0.8.20+commit.a1b79de6",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/InferenceProviderRegistry.sol": "project/contracts/InferenceProviderRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "shanghai",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/InferenceProviderRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\n/**\n * @title InferenceProviderRegistry\n * @notice On-chain reputation and discovery registry for Joule inference providers.\n *         Each provider reports metrics hourly; reputation accumulates on-chain so\n *         buyer agents can discover and rank providers trustlessly.\n */\ncontract InferenceProviderRegistry {\n\n    // ── Structs ───────────────────────────────────────────────────────────────\n\n    struct ReputationScore {\n        uint64  uptimePct;       // 0–100 (integer %)\n        uint64  avgLatencyMs;    // exponential moving average\n        uint64  errorRatePpm;    // errors per million reports\n        uint64  totalSessions;   // number of reportMetrics() calls\n        uint256 totalRevenue;    // cumulative USDC earned (6 decimals)\n    }\n\n    struct Provider {\n        uint256 id;\n        string  modelName;\n        uint256 basePrice;       // USDC/sec, 6 decimals (e.g. 200 = 0.0002 USDC)\n        string  features;        // comma-separated: \"streaming,tokenCounting\"\n        address walletAddress;   // SELLER_ADDRESS — only this can report/deactivate\n        bool    isActive;\n        uint256 totalInferenceSeconds;\n        uint256 totalUSDCEarned; // 6 decimals\n        uint256 registeredAt;\n        uint256 lastReportAt;\n        ReputationScore reputation;\n    }\n\n    // ── State ─────────────────────────────────────────────────────────────────\n\n    uint256 private _nextId = 1;\n    mapping(uint256 => Provider) private _providers;\n    mapping(address => uint256)  public  providerIdByWallet;\n    uint256[] private _allIds;\n\n    // ── Events ────────────────────────────────────────────────────────────────\n\n    event ProviderRegistered(uint256 indexed providerId, address indexed wallet, string modelName);\n    event MetricsReported(uint256 indexed providerId, uint256 secondsRun, uint256 earnedUsdc);\n    event ProviderDeactivated(uint256 indexed providerId);\n\n    // ── Modifiers ─────────────────────────────────────────────────────────────\n\n    modifier onlyProvider(uint256 providerId) {\n        require(\n            _providers[providerId].walletAddress == msg.sender,\n            \"InferenceProviderRegistry: caller is not the provider wallet\"\n        );\n        _;\n    }\n\n    // ── Registration ──────────────────────────────────────────────────────────\n\n    /**\n     * @notice Register (or re-register) a provider. One registration per wallet\n     *         address — subsequent calls update model/price/features and re-activate.\n     * @param modelName  Human-readable model identifier, e.g. \"qwen2.5-0.5b-instruct\"\n     * @param basePrice  Base price in USDC atomic units per second (6 decimals)\n     * @param features   Comma-separated capability tags\n     * @param walletAddress  The provider's payout wallet (msg.sender must match on writes)\n     * @return providerId  Stable numeric ID for this provider\n     */\n    function registerProvider(\n        string  calldata modelName,\n        uint256 basePrice,\n        string  calldata features,\n        address walletAddress\n    ) external returns (uint256 providerId) {\n        uint256 existing = providerIdByWallet[walletAddress];\n        if (existing != 0) {\n            Provider storage p = _providers[existing];\n            p.modelName = modelName;\n            p.basePrice = basePrice;\n            p.features  = features;\n            p.isActive  = true;\n            emit ProviderRegistered(existing, walletAddress, modelName);\n            return existing;\n        }\n        providerId = _nextId++;\n        _providers[providerId] = Provider({\n            id:                    providerId,\n            modelName:             modelName,\n            basePrice:             basePrice,\n            features:              features,\n            walletAddress:         walletAddress,\n            isActive:              true,\n            totalInferenceSeconds: 0,\n            totalUSDCEarned:       0,\n            registeredAt:          block.timestamp,\n            lastReportAt:          block.timestamp,\n            reputation: ReputationScore({\n                uptimePct:     100,\n                avgLatencyMs:  0,\n                errorRatePpm:  0,\n                totalSessions: 0,\n                totalRevenue:  0\n            })\n        });\n        providerIdByWallet[walletAddress] = providerId;\n        _allIds.push(providerId);\n        emit ProviderRegistered(providerId, walletAddress, modelName);\n    }\n\n    // ── Metric reporting ─────────────────────────────────────────────────────\n\n    /**\n     * @notice Report an hourly metrics snapshot for this provider. Only callable\n     *         by the registered wallet address (onlyProvider guard).\n     * @param providerId  As returned by registerProvider\n     * @param secondsRun  Total inference seconds served since last report\n     * @param earnedUsdc  USDC earned (atomic, 6 dec) since last report\n     * @param errorCount  Number of failed inference calls since last report\n     * @param avgLatencyMs  Rolling average response latency in milliseconds\n     */\n    function reportMetrics(\n        uint256 providerId,\n        uint256 secondsRun,\n        uint256 earnedUsdc,\n        uint64  errorCount,\n        uint64  avgLatencyMs\n    ) external onlyProvider(providerId) {\n        Provider storage p = _providers[providerId];\n        p.totalInferenceSeconds += secondsRun;\n        p.totalUSDCEarned       += earnedUsdc;\n        p.lastReportAt           = block.timestamp;\n\n        ReputationScore storage r = p.reputation;\n        r.totalSessions += 1;\n        r.totalRevenue  += earnedUsdc;\n\n        // Latency: 7/8 weight on history, 1/8 on new observation (EMA, α=0.125)\n        if (r.avgLatencyMs == 0) {\n            r.avgLatencyMs = avgLatencyMs;\n        } else {\n            r.avgLatencyMs = (r.avgLatencyMs * 7 + avgLatencyMs) / 8;\n        }\n\n        // Error rate: errors this session vs total sessions (simple ratio, ppm)\n        if (r.totalSessions > 0) {\n            r.errorRatePpm = (uint256(errorCount) * 1_000_000 / r.totalSessions) > type(uint64).max\n                ? type(uint64).max\n                : uint64(uint256(errorCount) * 1_000_000 / r.totalSessions);\n        }\n\n        emit MetricsReported(providerId, secondsRun, earnedUsdc);\n    }\n\n    // ── Read views ────────────────────────────────────────────────────────────\n\n    function getProvider(uint256 providerId) external view returns (Provider memory) {\n        return _providers[providerId];\n    }\n\n    function getProviderReputation(uint256 providerId) external view returns (ReputationScore memory) {\n        return _providers[providerId].reputation;\n    }\n\n    /**\n     * @notice Returns ALL provider IDs ever registered (active + inactive).\n     *         Off-chain callers filter by isActive and sort by their preferred metric.\n     */\n    function getAllProviderIds() external view returns (uint256[] memory) {\n        return _allIds;\n    }\n\n    function totalProviders() external view returns (uint256) {\n        return _allIds.length;\n    }\n\n    // ── Lifecycle ─────────────────────────────────────────────────────────────\n\n    function deactivateProvider(uint256 providerId) external onlyProvider(providerId) {\n        _providers[providerId].isActive = false;\n        emit ProviderDeactivated(providerId);\n    }\n}\n"
+      }
+    }
+  }
+}
