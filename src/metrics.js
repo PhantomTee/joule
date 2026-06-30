@@ -36,11 +36,22 @@ function labelStr(labels) {
   return `{${keys.map((k) => `${k}="${String(labels[k]).replace(/"/g, '\\"')}"`).join(",")}}`;
 }
 
+/**
+ * Increment a counter metric.
+ * @param {string} name - Metric name (e.g. "joule_sessions_total")
+ * @param {Record<string,string>} labels - Label key/value pairs
+ * @param {number} amount - Amount to add (default 1)
+ */
 export function inc(name, labels = {}, amount = 1) {
   const key = name + labelStr(labels);
   counters.set(key, (counters.get(key) ?? 0) + amount);
 }
 
+/**
+ * Record a histogram observation.
+ * @param {string} name - Metric name (e.g. "joule_payment_settlement_latency_ms")
+ * @param {number} value - The observed value
+ */
 export function observe(name, value) {
   if (!histograms.has(name)) {
     const les = [...(HISTOGRAM_BUCKETS[name] ?? [0.1, 0.5, 1, 5, 10]), Infinity];
@@ -58,6 +69,11 @@ export function observe(name, value) {
   }
 }
 
+/**
+ * Render all metrics in Prometheus text exposition format.
+ * Serve at GET /metrics with Content-Type: text/plain; version=0.0.4
+ * @returns {string}
+ */
 export function metricsText() {
   const lines = [];
 
