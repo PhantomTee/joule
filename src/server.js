@@ -21,6 +21,8 @@ import { PricingAgent } from "./pricing.js";
 import { streamChat } from "./inference.js";
 import { listProviders, getProvider } from "./registry.js";
 import { createAttestation, encodeAttestationHeader } from "./attestation.js";
+import { inc, observe, metricsText } from "./metrics.js";
+import { logger } from "./logger.js";
 
 // Free "try it, no wallet" demo — capped + lightly rate-limited so it can't be abused.
 let demoInFlight = 0;
@@ -284,6 +286,9 @@ export function createServer({ idleMonitor } = {}) {
         priceMultiplier:   quote.multiplier,
         pricingReason:     quote.reason,
       });
+      inc("joule_sessions_total", { outcome: "opened" });
+      inc("joule_provider_seconds_billed_total", {}, config.tickSeconds);
+      inc("joule_provider_usdc_earned_total", {}, settled.result.amountAtomic / 1e6);
 
       return send(res, 200, {
         sessionId: session.id,
@@ -343,9 +348,13 @@ export function createServer({ idleMonitor } = {}) {
         amountAtomic: settled.result.amountAtomic,
         gatewayTx: settled.result.transaction,
       });
+      inc("joule_provider_seconds_billed_total", {}, billedSeconds);
+      inc("joule_provider_usdc_earned_total", {}, settled.result.amountAtomic / 1e6);
+      observe("joule_session_duration_seconds", billedSeconds);
 
       const tokens = session.drainBuffer();
       const done = session.isComplete() || session.status !== "streaming";
+      if (done) inc("joule_sessions_total", { outcome: "completed" });
       if (done && session.isComplete()) sessions.remove(id);
 
       // On the final pull, sign the complete output so the buyer can verify it.
@@ -442,12 +451,18 @@ export function createServer({ idleMonitor } = {}) {
       }
     }
 
+    // ── Prometheus metrics ────────────────────────────────────────────────────
+    if (req.method === "GET" && path === "/metrics") {
+      res.writeHead(200, { "Content-Type": "text/plain; version=0.0.4; charset=utf-8" });
+      return res.end(metricsText());
+    }
+
     send(res, 404, { error: "not_found" });
   }
 
   const server = http.createServer((req, res) => {
     handle(req, res).catch((err) => {
-      console.error("[server] error:", err);
+      logger.error("unhandled route error", { path: req.url, err: err.message });
       if (!res.headersSent) send(res, 500, { error: "internal", message: err.message });
     });
   });

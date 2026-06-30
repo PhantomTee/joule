@@ -6,20 +6,24 @@ import { createServer } from "./server.js";
 import { IdleMonitor } from "./idle.js";
 import * as inference from "./inference.js";
 import { startCoordinatorClient } from "./coordinator-client.js";
+import { logger } from "./logger.js";
 
 async function main() {
-  console.log("Joule provider starting…");
-  console.log(`  model:     ${config.model}`);
-  console.log(`  inference: ${config.inferenceBase}`);
-  console.log(`  pricing:   ${config.pricePerSecondUsdc} USDC/sec (tick ${config.tickSeconds}s)`);
-  console.log(`  seller:    ${config.sellerAddress || "(SELLER_ADDRESS unset — settlement will fail)"}`);
-  console.log(`  network:   ${config.arc.network} (Arc testnet)`);
+  logger.info("Joule provider starting", {
+    model:    config.model,
+    inference: config.inferenceBase,
+    pricing:  `${config.pricePerSecondUsdc} USDC/sec (tick ${config.tickSeconds}s)`,
+    seller:   config.sellerAddress || "(SELLER_ADDRESS unset — settlement will fail)",
+    network:  config.arc.network,
+  });
 
   const up = await inference.health();
   if (!up) {
-    console.warn(`  ⚠ Inference backend not reachable at ${config.inferenceBase} — start the Qwen llamafile (or set INFERENCE_BASE).`);
+    logger.warn("inference backend not reachable — start the llamafile or set INFERENCE_BASE", {
+      base: config.inferenceBase,
+    });
   } else {
-    console.log("  warming model…");
+    logger.info("warming model…");
     await inference.keepWarm();
   }
 
@@ -27,17 +31,17 @@ async function main() {
   const { server } = createServer({ idleMonitor });
 
   server.listen(config.port, () => {
-    console.log(`\nProvider listening on http://localhost:${config.port}`);
-    console.log("  POST /v1/sessions            open a paid session");
-    console.log("  POST /v1/sessions/:id/pull   pay one tick, collect tokens");
-    console.log("  POST /v1/sessions/:id/stop   tap to stop");
-    console.log("  GET  /stats                  earnings + system\n");
+    logger.info("provider listening", {
+      url:     `http://localhost:${config.port}`,
+      metrics: `http://localhost:${config.port}/metrics`,
+      docs:    `http://localhost:${config.port}/`,
+    });
   });
 
   const coordinator = startCoordinatorClient();
 
   const shutdown = () => {
-    console.log("\nshutting down…");
+    logger.info("shutting down");
     idleMonitor.stop();
     coordinator?.stop?.();
     server.close(() => process.exit(0));
@@ -47,6 +51,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("fatal:", err);
+  logger.fatal("startup failed", { err: err.message, stack: err.stack });
   process.exit(1);
 });

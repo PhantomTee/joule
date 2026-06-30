@@ -1,8 +1,20 @@
 // Real x402 settlement on Circle Arc via @circle-fin/x402-batching.
 // No mock: the server verifies and settles every pull against the Gateway
 // facilitator, mirroring the scaffold's lib/x402.ts approach.
+//
+// Hardening: verify is a single attempt (bad signature = hard failure).
+// Settle retries up to 3 times with exponential backoff (100 → 400 → 1600 ms)
+// to survive transient Gateway/RPC hiccups.
 
 import { config } from "./config.js";
+import { inc, observe } from "./metrics.js";
+import { logger } from "./logger.js";
+
+// Settle attempts: initial + up to 3 retries. Delays between attempts (ms).
+const SETTLE_RETRY_DELAYS = [100, 400, 1600];
+
+// These errorReasons are definitive rejections — don't burn retries on them.
+const NON_RETRIABLE = new Set(["insufficient_funds", "signature_mismatch", "already_settled", "expired"]);
 
 // Build x402 "exact" payment requirements for an amount in atomic USDC (6 dp).
 // `payTo` defaults to this node's own seller address, but callers settling on
@@ -49,6 +61,8 @@ async function getFacilitator() {
 
 /**
  * Verify + settle a payment for `amountAtomic` USDC.
+ * Verify is single-attempt (hard failure on bad signature).
+ * Settle retries on transient errors with exponential backoff.
  * @returns {Promise<{settled:boolean, status:number, payer?:string, transaction?:string, reason?:string}>}
  */
 export async function charge({ signatureHeader, amountAtomic, endpoint, payTo }) {
@@ -68,10 +82,13 @@ export async function charge({ signatureHeader, amountAtomic, endpoint, payTo })
   }
 
   const facilitator = await getFacilitator();
+  const t0 = Date.now();
 
+  // ── Verify (no retry — invalid signature is a hard failure) ──────────────
   const verifyResult = await facilitator.verify(payload, requirements);
   if (!verifyResult.isValid) {
-    console.error(`[payment] verify failed for ${endpoint}:`, JSON.stringify(verifyResult));
+    inc("joule_x402_verify_errors_total");
+    logger.warn("x402 verify failed", { endpoint, reason: verifyResult.invalidReason });
     return {
       settled: false,
       status: 402,
@@ -80,17 +97,49 @@ export async function charge({ signatureHeader, amountAtomic, endpoint, payTo })
     };
   }
 
-  const settleResult = await facilitator.settle(payload, requirements);
-  if (!settleResult.success) {
-    console.error(`[payment] settle failed for ${endpoint}:`, JSON.stringify(settleResult));
+  // ── Settle with retry (up to 3 attempts on transient failures) ───────────
+  let settleResult = null;
+  let lastReason = "settlement_failed";
+
+  for (let attempt = 0; attempt <= SETTLE_RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      inc("joule_x402_retries_total");
+      logger.warn("x402 settle retry", { endpoint, attempt, lastReason });
+      await new Promise((r) => setTimeout(r, SETTLE_RETRY_DELAYS[attempt - 1]));
+    }
+    try {
+      settleResult = await facilitator.settle(payload, requirements);
+      if (settleResult.success) break;
+      lastReason = settleResult.errorReason ?? "settlement_failed";
+      if (NON_RETRIABLE.has(lastReason)) break;
+    } catch (err) {
+      lastReason = err.message ?? "settle_threw";
+      if (attempt === SETTLE_RETRY_DELAYS.length) {
+        logger.error("x402 settle threw after all retries", { endpoint, err: lastReason });
+        throw err;
+      }
+    }
+  }
+
+  const latencyMs = Date.now() - t0;
+  observe("joule_payment_settlement_latency_ms", latencyMs);
+
+  if (!settleResult?.success) {
+    logger.error("x402 settle failed", { endpoint, reason: lastReason, latencyMs });
     return {
       settled: false,
       status: 402,
-      reason: settleResult.errorReason ?? "settlement_failed",
+      reason: lastReason,
       requirements,
     };
   }
-  console.log(`[payment] settled ${endpoint}: ${amountAtomic} atomic USDC, tx ${settleResult.transaction ?? "?"}`);
+
+  logger.info("x402 settled", {
+    endpoint,
+    amountAtomic,
+    tx: settleResult.transaction ?? "?",
+    latencyMs,
+  });
 
   return {
     settled: true,
