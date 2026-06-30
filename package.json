@@ -22,7 +22,9 @@
     "buy-lite": "node --env-file-if-exists=.env scripts/buy-lite.mjs",
     "contracts:compile": "npx hardhat --config hardhat.config.cjs compile",
     "contracts:deploy": "node scripts/deploy-registry.mjs",
-    "provider:register": "node scripts/register-provider.mjs"
+    "provider:register": "node scripts/register-provider.mjs",
+    "market-snapshot": "node scripts/market-snapshot.mjs",
+    "provider-status": "node --env-file-if-exists=.env scripts/provider-status.mjs"
   },
   "keywords": [
     "x402",
