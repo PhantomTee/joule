@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 const COORD = "https://joule-coordinator.onrender.com";
 
 function short(addr) {
-  if (!addr) return "—";
+  if (!addr) return "-";
   return addr.slice(0, 6) + "…" + addr.slice(-4);
 }
 
@@ -83,7 +83,7 @@ export default function MarketplaceClient() {
           <Stat label="providers"     value={stats.count} />
           <Stat label="total earned"  value={`${stats.totalEarned.toFixed(4)} USDC`} />
           <Stat label="seconds sold"  value={stats.totalSecs.toLocaleString()} />
-          <Stat label="avg price"     value={stats.avgPrice ? `${stats.avgPrice.toFixed(6)}/sec` : "—"} />
+          <Stat label="avg price"     value={stats.avgPrice ? `${stats.avgPrice.toFixed(6)}/sec` : "-"} />
           <Stat label="live sessions" value={stats.activeSessions} accent />
         </div>
       )}
@@ -182,7 +182,7 @@ function NodeCard({ node: n, selected, onClick }) {
       <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--dim)", marginTop: 8, letterSpacing: ".04em" }}>{n.model}</div>
 
       <div style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--accent)", fontSize: 22, marginTop: 14, fontVariantNumeric: "tabular-nums" }}>
-        {n.pricePerSecond != null ? n.pricePerSecond : "—"}
+        {n.pricePerSecond != null ? n.pricePerSecond : "-"}
         <span style={{ fontSize: "0.5em", color: "var(--dim)", letterSpacing: ".1em" }}> USDC/sec</span>
       </div>
 
@@ -207,8 +207,8 @@ function NodeCard({ node: n, selected, onClick }) {
         <div style={{ marginTop: 4 }}>
           <hr style={{ border: "none", borderTop: "1px solid var(--rule)", margin: "12px 0" }} />
           <DetailRow label="node id"      value={n.id} />
-          <DetailRow label="joined"       value={n.joinedAt ? new Date(n.joinedAt).toLocaleString() : "—"} />
-          <DetailRow label="full address" value={n.sellerAddress || "—"} mono />
+          <DetailRow label="joined"       value={n.joinedAt ? new Date(n.joinedAt).toLocaleString() : "-"} />
+          <DetailRow label="full address" value={n.sellerAddress || "-"} mono />
           <DetailRow label="kind"         value={n.kind || "native"} />
           {n.url && <DetailRow label="endpoint" value={n.url} link />}
           {n.priceMultiplier != null && (

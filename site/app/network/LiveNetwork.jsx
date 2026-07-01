@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 const COORDINATOR = "https://joule-coordinator.onrender.com";
 
-// Representative numbers only — shown when nothing's actually online, never
+// Representative numbers only - shown when nothing's actually online, never
 // blended with real data, and always labeled as an example.
 const EXAMPLE_NODES = [
   { id: "ex-1", name: "Maya's Mac", kind: "native", model: "qwen2.5:1.5b", pricePerSecond: 0.00085, secondsSold: 4120, earnedUsdc: 3.5 },
@@ -61,7 +61,7 @@ export default function LiveNetwork() {
         <>
           {showingExample && (
             <p className="body" style={{ marginTop: 4 }}>
-              No nodes are online this moment — the network is just whoever's running{" "}
+              No nodes are online this moment. The network is just whoever's running{" "}
               <code>joule-node.exe</code> or the browser extension right now. Here's an
               example of what this looks like with nodes live (clearly marked, not real):
             </p>

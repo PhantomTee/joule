@@ -47,7 +47,7 @@ export default function HowItWorks() {
       <h2>The x402 handshake</h2>
       <p className="body">
         The first request gets an HTTP <code>402 Payment Required</code> with the terms (asset = USDC, network = Arc,
-        price for this tick). The agent signs a USDC authorization from its Circle Gateway balance and retries — the node
+        price for this tick). The agent signs a USDC authorization from its Circle Gateway balance and retries; the node
         verifies, settles, and serves. <b>No API key, no account.</b> Money is the key.
       </p>
 
@@ -55,14 +55,14 @@ export default function HowItWorks() {
       <p className="body">
         Each &quot;pull&quot; buys one tick (~one second) of streaming. The model is held server-side with backpressure
         so it <b>can&apos;t run ahead of payment</b>. The moment the agent stops pulling, generation halts and the node
-        frees the GPU — so you only ever pay for the seconds you actually consumed.
+        frees the GPU, so you only ever pay for the seconds you actually consumed.
       </p>
 
       <h2>Two autonomous agents</h2>
       <p className="body">
         A <b>provider pricing agent</b> quotes a per-second price that surges under load and discounts when the machine
         is idle. A <b>buyer agent</b> discovers providers, walks away if the price is over its limit, streams, and{" "}
-        <b>judges the answer each second</b> — stopping on its own when it&apos;s good enough or the budget is hit. Both
+        <b>judges the answer each second</b>, stopping on its own when it&apos;s good enough or the budget is hit. Both
         narrate their reasoning.
       </p>
 

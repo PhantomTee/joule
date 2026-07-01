@@ -17,7 +17,7 @@ export default function MarketplacePage() {
         </h1>
         <p className="sub">
           Live nodes selling idle GPU/CPU time per second. Buyer agents discover the
-          best provider by price, latency, and earnings history — then pay in USDC
+          best provider by price, latency, and earnings history, then pay in USDC
           on Arc, one second at a time.
         </p>
         <div className="cta">

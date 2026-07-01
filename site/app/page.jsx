@@ -68,7 +68,7 @@ export default function Home() {
       <Link className="card" href="/agents">
         <div className="n">BUILD</div>
         <h3>Agents</h3>
-        <p>Need inference? Pay per second in USDC. No accounts, no API keys — money is the key.</p>
+        <p>Need inference? Pay per second in USDC. No accounts, no API keys. Money is the key.</p>
         <span className="more">Use the API →</span>
       </Link>
       <Link className="card" href="/network">
@@ -79,15 +79,15 @@ export default function Home() {
       </Link>
     </div>
 
-    <h2>Not a server — an agent</h2>
+    <h2>Not a server: an agent</h2>
     <p className="body">
       Your node <b>sets its own price</b> (it surges when busy, discounts when idle) and <b>advertises itself</b> so
       other agents can find and hire it. The buyer is an agent too: it judges the price against its budget, streams the
-      answer, and <b>taps stop</b> when satisfied. Software paying software, in USDC, on Arc — and unlike a pay-per-call
+      answer, and <b>taps stop</b> when satisfied. Software paying software, in USDC, on Arc. Unlike a pay-per-call
       proxy, the inference runs on <b>your own hardware</b>.
     </p>
 
-    <h2>Try it free — no wallet</h2>
+    <h2>Try it free (no wallet)</h2>
     <p className="body">Every node serves a capped demo so you can feel the stream before paying a cent:</p>
     <pre>
       <code>

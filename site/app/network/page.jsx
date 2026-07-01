@@ -44,13 +44,13 @@ export default function Network() {
 
       <LiveNetwork />
 
-      <h2 style={{ marginTop: 46 }}>Already live — join with zero setup</h2>
+      <h2 style={{ marginTop: 46 }}>Already live: join with zero setup</h2>
       <p className="body">
         Every node joins{" "}
         <a href="https://joule-coordinator.onrender.com" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
           the shared Joule network
         </a>{" "}
-        automatically — nobody runs or hosts a coordinator just to be discoverable. Download the node, run it, and it
+        automatically. Nobody runs or hosts a coordinator just to be discoverable. Download the node, run it, and it
         announces itself outbound. Want a private network instead? Run your own and point your nodes at it:
       </p>
       <pre>

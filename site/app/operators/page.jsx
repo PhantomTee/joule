@@ -12,7 +12,7 @@ export default function Operators() {
         </h1>
         <p className="sub">
           Your machine sits idle most of the day. Point Joule at your wallet and that spare GPU/CPU starts serving paid
-          inference to agents — you keep what you meter, and you can stop any time.
+          inference to agents. You keep what you meter, and you can stop any time.
         </p>
         <div className="cta">
           <a className="btn" href="https://github.com/PhantomTee/joule/releases/latest/download/joule-lite-extension.zip">
@@ -27,7 +27,7 @@ export default function Operators() {
       <h2>The fast way: a Chrome extension</h2>
       <p className="body">
         No install, no Ollama, no terminal. Joule lite runs the model right in your browser over WebGPU and earns
-        USDC per second whenever a buyer&apos;s job is routed to you — close the tab and it just stops.
+        USDC per second whenever a buyer&apos;s job is routed to you; close the tab and it just stops.
       </p>
       <div className="grid3">
         <div className="card">
@@ -50,7 +50,7 @@ export default function Operators() {
           <h3>Connect a wallet + start</h3>
           <p>
             Click the Joule icon, paste your Arc payout address, hit <b>Start</b>. It joins the network and earns per
-            second whenever its model answers a real inference job — paid straight to that address, no custody.
+            second whenever its model answers a real inference job, paid straight to that address, no custody.
           </p>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function Operators() {
           <div className="n">01</div>
           <h3>Run it</h3>
           <p>
-            Double-click <code>joule-node.exe</code> — no install, no Node. It fetches a model on first launch.
+            Double-click <code>joule-node.exe</code>. No install, no Node. It fetches a model on first launch.
           </p>
         </div>
         <div className="card">
@@ -84,7 +84,7 @@ export default function Operators() {
 
       <h2>You set the terms</h2>
       <p className="body">
-        Your node prices itself with a <b>pricing agent</b> — it surges when busy and discounts when your machine is idle
+        Your node prices itself with a <b>pricing agent</b>: it surges when busy and discounts when your machine is idle
         to attract work. You can require the machine be genuinely idle before it serves, so paid inference only ever runs
         on truly spare capacity. <b>You keep what you meter</b>; withdraw your Gateway balance to chain whenever.
       </p>
@@ -92,13 +92,13 @@ export default function Operators() {
       <h2>The operator console</h2>
       <p className="body">
         Connect your wallet and the console shows this node&apos;s earnings (its Circle Gateway balance), your on-chain
-        USDC, seconds sold, and a live tape of settlements — each linkable on Arcscan. It confirms the connected wallet
+        USDC, seconds sold, and a live tape of settlements, each linkable on Arcscan. It confirms the connected wallet
         is the node&apos;s payout wallet, so you always know the money&apos;s coming to you.
       </p>
 
       <h2>Join the network</h2>
       <p className="body">
-        Set <code>COORDINATOR_URL</code> and your node announces itself <b>outbound</b> — no port-forwarding — so it
+        Set <code>COORDINATOR_URL</code> and your node announces itself <b>outbound</b> (no port-forwarding), so it
         appears on the network and buyer agents can discover it alongside other nodes.{" "}
         <Link href="/network" style={{ color: "var(--meter)" }}>
           See the network →
